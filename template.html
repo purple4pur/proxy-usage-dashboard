@@ -356,15 +356,9 @@
     <script>
         // 从CSV数据生成的结构化数据
         const trafficData = [
-            {% for entry in traffic_data %}
-            {
-                date: '{{ entry.date }}',
-                upload: {{ entry.upload }},
-                download: {{ entry.download }},
-                totalUsed: {{ entry.totalUsed }},
-                usedPercent: {{ entry.usedPercent }}
-            }{% if not loop.last %},{% endif %}
-            {% endfor %}
+            {% for entry in traffic_data -%}
+            {date: '{{ entry.date }}', upload: {{ entry.upload }}, download: {{ entry.download }}, totalUsed: {{ entry.totalUsed }}, usedPercent: {{ entry.usedPercent }}}{% if not loop.last -%},{% endif %}
+            {% endfor -%}
         ];
 
         // 总流量
