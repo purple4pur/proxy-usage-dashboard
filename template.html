@@ -243,6 +243,7 @@
         <header>
             <h1>流量使用统计</h1>
             <p class="subtitle" id="date-range">YYYY-MM-DD 至 YYYY-MM-DD 流量使用分析</p>
+            <p class="subtitle" id="update-info">数据更新时间: YYYY-MM-DD</p>
         </header>
 
         <div class="stats-grid">
@@ -310,9 +311,8 @@
                 <div class="chart-header">
                     <h2 class="chart-title">每日上传下载量</h2>
                     <div class="chart-actions">
-                        <button class="chart-btn" data-chart="dailyUsageChart" data-type="upload">上传</button>
-                        <button class="chart-btn" data-chart="dailyUsageChart" data-type="download">下载</button>
-                        <button class="chart-btn active" data-chart="dailyUsageChart" data-type="all">全部</button>
+                        <button class="chart-btn" data-chart="dailyUsageChart" data-range="7">7天</button>
+                        <button class="chart-btn active" data-chart="dailyUsageChart" data-range="all">全部</button>
                     </div>
                 </div>
                 <div class="chart-wrapper">
@@ -348,7 +348,6 @@
         </div>
 
         <footer>
-            <p id="update-info">数据更新时间: YYYY-MM-DD</p>
             <p>© 2025 Purple4pur | <a href='https://github.com/purple4pur/proxy-usage-dashboard'>你们这里谁最懂 Vibe Coding<a></p>
         </footer>
     </div>
@@ -364,22 +363,29 @@
         // 总流量
         const totalGB = {{ total_gb }};
 
-        // 计算每日增量数据 - 第一天设为0
+        // 计算每日增量数据 - 丢弃第一天数据
         const dailyIncrements = trafficData.map((entry, index) => {
             if (index === 0) {
                 return {
                     date: entry.date,
                     upload: 0,
-                    download: 0
+                    download: 0,
+                    total: 0
                 };
             }
 
             return {
                 date: entry.date,
                 upload: entry.upload - trafficData[index - 1].upload,
-                download: entry.download - trafficData[index - 1].download
+                download: entry.download - trafficData[index - 1].download,
+                total: (entry.upload - trafficData[index - 1].upload) +
+                       (entry.download - trafficData[index - 1].download)
             };
-        });
+        }).slice(1);
+
+        // 计算日均总流量
+        const dailyTotals = dailyIncrements.map(entry => entry.total);
+        const avgTotal = dailyTotals.reduce((sum, val) => sum + val, 0) / dailyTotals.length;
 
         // 提取图表所需数据
         const dates = trafficData.map(entry => entry.date.substring(5)); // 格式为 "MM-DD"
@@ -387,6 +393,7 @@
         const usedPercent = trafficData.map(entry => entry.usedPercent);
         const uploadDaily = dailyIncrements.map(entry => entry.upload);
         const downloadDaily = dailyIncrements.map(entry => entry.download);
+        const totalDaily = dailyIncrements.map(entry => entry.total);
         const totalUpload = trafficData[trafficData.length - 1].upload;
         const totalDownload = trafficData[trafficData.length - 1].download;
 
@@ -555,6 +562,10 @@
                     plugins: {
                         legend: {
                             position: 'top',
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false
                         }
                     },
                     scales: {
@@ -585,7 +596,7 @@
             dailyUsageChart = new Chart(dailyUsageCtx, {
                 type: 'bar',
                 data: {
-                    labels: dates,
+                    labels: dates.slice(1),
                     datasets: [
                         {
                             label: '上传',
@@ -600,6 +611,24 @@
                             backgroundColor: 'rgba(247, 37, 133, 0.7)',
                             borderColor: 'rgba(247, 37, 133, 1)',
                             borderWidth: 1
+                        },
+                        {
+                            label: '总流量',
+                            data: totalDaily,
+                            backgroundColor: 'rgba(40, 167, 69, 0.7)',
+                            borderColor: 'rgba(40, 167, 69, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: '日均总流量',
+                            data: Array(dates.length - 1).fill(avgTotal),
+                            type: 'line',
+                            borderColor: 'rgba(255, 193, 7, 1)',
+                            backgroundColor: 'rgba(255, 193, 7, 0.1)',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            borderDash: [5, 5],
+                            fill: false
                         }
                     ]
                 },
@@ -611,10 +640,18 @@
                             position: 'top',
                         },
                         tooltip: {
+                            mode: 'index',
+                            intersect: false,
                             callbacks: {
                                 label: function(context) {
                                     const label = context.dataset.label || '';
                                     const value = context.raw || 0;
+
+                                    // 为日均线添加特殊提示
+                                    if (label === '日均总流量') {
+                                        return `${label}: ${value.toFixed(2)} GB`;
+                                    }
+
                                     return `${label}: ${value.toFixed(1)} GB`;
                                 }
                             }
@@ -682,8 +719,8 @@
 
         // 图表按钮事件处理
         function setupChartButtons() {
-            // 总流量和使用率图表按钮
-            document.querySelectorAll('.chart-btn[data-range]').forEach(btn => {
+            // 所有图表按钮
+            document.querySelectorAll('.chart-btn').forEach(btn => {
                 btn.addEventListener('click', function() {
                     const chartId = this.dataset.chart;
                     const range = this.dataset.range;
@@ -699,25 +736,8 @@
                         updateTotalUsageChart(range);
                     } else if (chartId === 'percentChart') {
                         updatePercentChart(range);
-                    }
-                });
-            });
-
-            // 每日上传下载图表按钮
-            document.querySelectorAll('.chart-btn[data-type]').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const chartId = this.dataset.chart;
-                    const type = this.dataset.type;
-
-                    // 更新按钮状态
-                    this.parentElement.querySelectorAll('.chart-btn').forEach(b => {
-                        b.classList.remove('active');
-                    });
-                    this.classList.add('active');
-
-                    // 更新图表数据
-                    if (chartId === 'dailyUsageChart') {
-                        updateDailyUsageChart(type);
+                    } else if (chartId === 'dailyUsageChart') {
+                        updateDailyUsageChart(range);
                     }
                 });
             });
@@ -762,12 +782,36 @@
         }
 
         // 更新每日上传下载图表
-        function updateDailyUsageChart(type) {
-            const uploadData = type === 'download' ? [] : uploadDaily;
-            const downloadData = type === 'upload' ? [] : downloadDaily;
+        function updateDailyUsageChart(range) {
+            let labels, uploadData, downloadData, totalData;
 
+            if (range === '7') {
+                // 显示最近7天数据
+                labels = dates.slice(-7);
+                uploadData = uploadDaily.slice(-7);
+                downloadData = downloadDaily.slice(-7);
+                totalData = totalDaily.slice(-7);
+
+                // 计算最近7天的日均总流量
+                const avg = totalData.reduce((sum, val) => sum + val, 0) / totalData.length;
+
+                // 更新日均线数据
+                dailyUsageChart.data.datasets[3].data = Array(totalData.length).fill(avg);
+            } else {
+                // 显示全部数据
+                labels = dates.slice(1);
+                uploadData = uploadDaily;
+                downloadData = downloadDaily;
+                totalData = totalDaily;
+
+                // 使用全局平均值
+                dailyUsageChart.data.datasets[3].data = Array(dates.length - 1).fill(avgTotal);
+            }
+
+            dailyUsageChart.data.labels = labels;
             dailyUsageChart.data.datasets[0].data = uploadData;
             dailyUsageChart.data.datasets[1].data = downloadData;
+            dailyUsageChart.data.datasets[2].data = totalData;
             dailyUsageChart.update();
         }
 
