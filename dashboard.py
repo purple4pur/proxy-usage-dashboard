@@ -2,6 +2,7 @@ import csv
 from jinja2 import Environment, FileSystemLoader
 import os
 import sys
+from datetime import datetime, timezone, timedelta
 
 def process_csv(csv_file):
     traffic_data = []
@@ -31,10 +32,15 @@ def generate_html(output_file, traffic_data, total_gb):
     env = Environment(loader=FileSystemLoader('.'))
     template = env.get_template('template.html')
 
+    # Get current UTC+8 time
+    utc8 = timezone(timedelta(hours=8))
+    current_time = datetime.now(utc8).strftime("%Y-%m-%d %H:%M:%S")
+
     # Render template
     html_output = template.render(
         traffic_data=traffic_data,
-        total_gb=total_gb
+        total_gb=total_gb,
+        current_time=current_time
     )
 
     # Write output file
@@ -57,4 +63,4 @@ if __name__ == "__main__":
     # Generate HTML
     generate_html(output_file, traffic_data, total_gb)
 
-    print(f"Successfully generated monitoring page: {output_file}")
+    print(f"Successfully generated dashboard page: {output_file}")

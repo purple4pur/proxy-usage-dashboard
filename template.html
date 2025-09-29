@@ -243,7 +243,7 @@
         <header>
             <h1>流量使用统计</h1>
             <p class="subtitle" id="date-range">YYYY-MM-DD 至 YYYY-MM-DD 流量使用分析</p>
-            <p class="subtitle" id="update-info">数据更新时间: YYYY-MM-DD</p>
+            <p class="subtitle" id="update-info">数据更新时间: {{ current_time }}</p>
         </header>
 
         <div class="stats-grid">
@@ -453,12 +453,6 @@
             const endDate = trafficData[trafficData.length - 1].date;
             document.getElementById('date-range').textContent =
                 `${startDate} 至 ${endDate} 流量使用分析`;
-
-            // 更新数据更新时间（最后一条数据当天）
-            const lastDate = new Date(endDate);
-            const updateDate = lastDate.toISOString().split('T')[0];
-            document.getElementById('update-info').textContent =
-                `数据更新时间: ${updateDate}`;
         }
 
         // 填充表格数据
