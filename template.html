@@ -453,9 +453,8 @@
             document.getElementById('date-range').textContent =
                 `${startDate} 至 ${endDate} 流量使用分析`;
 
-            // 更新数据更新时间（最后一条数据的下一天）
+            // 更新数据更新时间（最后一条数据当天）
             const lastDate = new Date(endDate);
-            lastDate.setDate(lastDate.getDate() + 1);
             const updateDate = lastDate.toISOString().split('T')[0];
             document.getElementById('update-info').textContent =
                 `数据更新时间: ${updateDate}`;
