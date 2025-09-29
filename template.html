@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>流量使用监控面板</title>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --primary: #4361ee;
+            --secondary: #3f37c9;
+            --success: #4cc9f0;
+            --warning: #f72585;
+            --light: #f8f9fa;
+            --dark: #212529;
+            --gray: #6c757d;
+            --border: #dee2e6;
+            --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+        }
+
+        body {
+            background-color: #f5f7fb;
+            color: var(--dark);
+            line-height: 1.6;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px 0;
+        }
+
+        h1 {
+            color: var(--primary);
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: var(--gray);
+            font-size: 1.1rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: var(--card-shadow);
+            text-align: center;
+            transition: transform 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .stat-icon {
+            font-size: 2.5rem;
+            margin-bottom: 15px;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            color: var(--gray);
+            font-size: 1rem;
+        }
+
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(600px, 1fr));
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+
+        .chart-container {
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: var(--card-shadow);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .chart-title {
+            font-size: 1.4rem;
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        .chart-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .chart-btn {
+            background: var(--light);
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            padding: 5px 10px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        .chart-btn:hover {
+            background: var(--primary);
+            color: white;
+        }
+
+        .chart-btn.active {
+            background: var(--primary);
+            color: white;
+        }
+
+        .chart-wrapper {
+            position: relative;
+            width: 100%;
+            flex-grow: 1;
+            min-height: 300px;
+        }
+
+        .data-table {
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: var(--card-shadow);
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th {
+            background-color: var(--light);
+            font-weight: 600;
+        }
+
+        tr:hover {
+            background-color: rgba(67, 97, 238, 0.05);
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            padding: 20px 0;
+            color: var(--gray);
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 768px) {
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+
+            h1 {
+                font-size: 2rem;
+            }
+
+            .stat-value {
+                font-size: 1.8rem;
+            }
+
+            .chart-title {
+                font-size: 1.2rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            body {
+                padding: 10px;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .stat-card {
+                padding: 15px;
+            }
+
+            .stat-value {
+                font-size: 1.5rem;
+            }
+
+            .chart-container {
+                padding: 15px;
+            }
+
+            .chart-title {
+                font-size: 1.1rem;
+            }
+
+            .chart-btn {
+                padding: 4px 8px;
+                font-size: 0.8rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>流量使用监控面板</h1>
+            <p class="subtitle" id="date-range">YYYY-MM-DD 至 YYYY-MM-DD 流量使用分析</p>
+        </header>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon" style="color: #4361ee;">
+                    <i class="fa fa-database"></i>
+                </div>
+                <div class="stat-value" id="total-available">NULL GB</div>
+                <div class="stat-label">总可用流量</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon" style="color: #f72585;">
+                    <i class="fa fa-line-chart"></i>
+                </div>
+                <div class="stat-value" id="total-used">NULL GB</div>
+                <div class="stat-label">已用流量</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon" style="color: #4cc9f0;">
+                    <i class="fa fa-tachometer"></i>
+                </div>
+                <div class="stat-value" id="usage-percent">NULL%</div>
+                <div class="stat-label">使用率</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon" style="color: #3a0ca3;">
+                    <i class="fa fa-hourglass-half"></i>
+                </div>
+                <div class="stat-value" id="remaining-days">NULL 天</div>
+                <div class="stat-label">预计剩余天数</div>
+            </div>
+        </div>
+
+        <div class="charts-grid">
+            <div class="chart-container">
+                <div class="chart-header">
+                    <h2 class="chart-title">已用流量</h2>
+                    <div class="chart-actions">
+                        <button class="chart-btn" data-chart="totalUsageChart" data-range="7">7天</button>
+                        <button class="chart-btn active" data-chart="totalUsageChart" data-range="all">全部</button>
+                    </div>
+                </div>
+                <div class="chart-wrapper">
+                    <canvas id="totalUsageChart"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <div class="chart-header">
+                    <h2 class="chart-title">使用率</h2>
+                    <div class="chart-actions">
+                        <button class="chart-btn" data-chart="percentChart" data-range="7">7天</button>
+                        <button class="chart-btn active" data-chart="percentChart" data-range="all">全部</button>
+                    </div>
+                </div>
+                <div class="chart-wrapper">
+                    <canvas id="percentChart"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <div class="chart-header">
+                    <h2 class="chart-title">每日上传下载量</h2>
+                    <div class="chart-actions">
+                        <button class="chart-btn" data-chart="dailyUsageChart" data-type="upload">上传</button>
+                        <button class="chart-btn" data-chart="dailyUsageChart" data-type="download">下载</button>
+                        <button class="chart-btn active" data-chart="dailyUsageChart" data-type="all">全部</button>
+                    </div>
+                </div>
+                <div class="chart-wrapper">
+                    <canvas id="dailyUsageChart"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <div class="chart-header">
+                    <h2 class="chart-title">上传下载比例</h2>
+                </div>
+                <div class="chart-wrapper">
+                    <canvas id="ratioChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="data-table">
+            <h2 style="margin-bottom: 20px;">详细数据</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>日期</th>
+                        <th>上传 (GB)</th>
+                        <th>下载 (GB)</th>
+                        <th>总使用量 (GB)</th>
+                        <th>使用率 (%)</th>
+                    </tr>
+                </thead>
+                <tbody id="data-table-body">
+                    <!-- 表格数据将由JavaScript动态生成 -->
+                </tbody>
+            </table>
+        </div>
+
+        <footer>
+            <p id="update-info">数据更新时间: YYYY-MM-DD</p>
+            <p>© 2025 流量监控系统 | 基于实际使用数据生成 | Vibe Coding</p>
+        </footer>
+    </div>
+
+    <script>
+        // 从CSV数据生成的结构化数据
+        const trafficData = [
+            {% for entry in traffic_data %}
+            {
+                date: '{{ entry.date }}',
+                upload: {{ entry.upload }},
+                download: {{ entry.download }},
+                totalUsed: {{ entry.totalUsed }},
+                usedPercent: {{ entry.usedPercent }}
+            }{% if not loop.last %},{% endif %}
+            {% endfor %}
+        ];
+
+        // 总流量
+        const totalGB = {{ total_gb }};
+
+        // 计算每日增量数据 - 第一天设为0
+        const dailyIncrements = trafficData.map((entry, index) => {
+            if (index === 0) {
+                return {
+                    date: entry.date,
+                    upload: 0,
+                    download: 0
+                };
+            }
+
+            return {
+                date: entry.date,
+                upload: entry.upload - trafficData[index - 1].upload,
+                download: entry.download - trafficData[index - 1].download
+            };
+        });
+
+        // 提取图表所需数据
+        const dates = trafficData.map(entry => entry.date.substring(5)); // 格式为 "MM-DD"
+        const totalUsed = trafficData.map(entry => entry.totalUsed);
+        const usedPercent = trafficData.map(entry => entry.usedPercent);
+        const uploadDaily = dailyIncrements.map(entry => entry.upload);
+        const downloadDaily = dailyIncrements.map(entry => entry.download);
+        const totalUpload = trafficData[trafficData.length - 1].upload;
+        const totalDownload = trafficData[trafficData.length - 1].download;
+
+        // 图表实例存储
+        let totalUsageChart = null;
+        let percentChart = null;
+        let dailyUsageChart = null;
+        let ratioChart = null;
+
+        // 计算预计剩余天数（基于近7天平均增幅）
+        function calculateRemainingDays() {
+            // 获取最近7天的使用率数据
+            const last7Days = usedPercent.slice(-7);
+
+            if (last7Days.length < 2) {
+                return "未知"; // 数据不足无法计算
+            }
+
+            // 计算每日增长量
+            let dailyIncrements = [];
+            for (let i = 1; i < last7Days.length; i++) {
+                dailyIncrements.push(last7Days[i] - last7Days[i-1]);
+            }
+
+            // 计算平均每日增长量
+            const avgDailyIncrement = dailyIncrements.reduce((sum, val) => sum + val, 0) / dailyIncrements.length;
+
+            if (avgDailyIncrement <= 0) {
+                return "未知"; // 增长量为负或零
+            }
+
+            // 计算剩余天数
+            const currentUsage = usedPercent[usedPercent.length - 1];
+            const remainingPercentage = 100 - currentUsage;
+            const remainingDays = Math.ceil(remainingPercentage / avgDailyIncrement);
+
+            return remainingDays;
+        }
+
+        // 更新统计数据
+        function updateStats() {
+            // 获取最后一条数据
+            const lastData = trafficData[trafficData.length - 1];
+
+            // 更新统计数据
+            document.getElementById('total-available').textContent = totalGB.toFixed(1) + ' GB';
+            document.getElementById('total-used').textContent = lastData.totalUsed.toFixed(1) + ' GB';
+            document.getElementById('usage-percent').textContent = lastData.usedPercent.toFixed(1) + '%';
+
+            // 计算并更新预计剩余天数
+            const remainingDays = calculateRemainingDays();
+            document.getElementById('remaining-days').textContent =
+                typeof remainingDays === 'number' ? remainingDays + ' 天' : remainingDays;
+
+            // 更新日期范围
+            const startDate = trafficData[0].date;
+            const endDate = trafficData[trafficData.length - 1].date;
+            document.getElementById('date-range').textContent =
+                `${startDate} 至 ${endDate} 流量使用分析`;
+
+            // 更新数据更新时间（最后一条数据的下一天）
+            const lastDate = new Date(endDate);
+            lastDate.setDate(lastDate.getDate() + 1);
+            const updateDate = lastDate.toISOString().split('T')[0];
+            document.getElementById('update-info').textContent =
+                `数据更新时间: ${updateDate}`;
+        }
+
+        // 填充表格数据
+        function populateTable() {
+            const tableBody = document.getElementById('data-table-body');
+            tableBody.innerHTML = '';
+
+            trafficData.forEach(entry => {
+                const row = document.createElement('tr');
+
+                row.innerHTML = `
+                    <td>${entry.date}</td>
+                    <td>${entry.upload.toFixed(1)}</td>
+                    <td>${entry.download.toFixed(1)}</td>
+                    <td>${entry.totalUsed.toFixed(1)}</td>
+                    <td>${entry.usedPercent.toFixed(1)}%</td>
+                `;
+
+                tableBody.appendChild(row);
+            });
+        }
+
+        // 初始化图表
+        function initCharts() {
+            // 1. 总流量使用趋势图
+            const totalUsageCtx = document.getElementById('totalUsageChart').getContext('2d');
+            totalUsageChart = new Chart(totalUsageCtx, {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [
+                        {
+                            label: '总可用流量',
+                            data: Array(dates.length).fill(totalGB),
+                            borderColor: '#4cc9f0',
+                            backgroundColor: 'rgba(76, 201, 240, 0.1)',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            borderDash: [5, 5]
+                        },
+                        {
+                            label: '已用流量',
+                            data: totalUsed,
+                            borderColor: '#f72585',
+                            backgroundColor: 'rgba(247, 37, 133, 0.1)',
+                            borderWidth: 3,
+                            tension: 0.3,
+                            fill: true
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: '流量 (GB)'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: '日期'
+                            }
+                        }
+                    }
+                }
+            });
+
+            // 2. 使用率变化图
+            const percentCtx = document.getElementById('percentChart').getContext('2d');
+            percentChart = new Chart(percentCtx, {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [{
+                        label: '使用率',
+                        data: usedPercent,
+                        borderColor: '#3a0ca3',
+                        backgroundColor: 'rgba(58, 12, 163, 0.1)',
+                        borderWidth: 3,
+                        tension: 0.3,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: '使用率 (%)'
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return value + '%';
+                                }
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: '日期'
+                            }
+                        }
+                    }
+                }
+            });
+
+            // 3. 每日上传下载柱状图（使用增量数据）
+            const dailyUsageCtx = document.getElementById('dailyUsageChart').getContext('2d');
+            dailyUsageChart = new Chart(dailyUsageCtx, {
+                type: 'bar',
+                data: {
+                    labels: dates,
+                    datasets: [
+                        {
+                            label: '上传',
+                            data: uploadDaily,
+                            backgroundColor: 'rgba(67, 97, 238, 0.7)',
+                            borderColor: 'rgba(67, 97, 238, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: '下载',
+                            data: downloadDaily,
+                            backgroundColor: 'rgba(247, 37, 133, 0.7)',
+                            borderColor: 'rgba(247, 37, 133, 1)',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.dataset.label || '';
+                                    const value = context.raw || 0;
+                                    return `${label}: ${value.toFixed(1)} GB`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: '流量 (GB)'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: '日期'
+                            }
+                        }
+                    }
+                }
+            });
+
+            // 4. 上传下载比例饼图
+            const ratioCtx = document.getElementById('ratioChart').getContext('2d');
+            ratioChart = new Chart(ratioCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['上传流量', '下载流量'],
+                    datasets: [{
+                        data: [totalUpload, totalDownload],
+                        backgroundColor: [
+                            'rgba(67, 97, 238, 0.8)',
+                            'rgba(247, 37, 133, 0.8)'
+                        ],
+                        borderColor: [
+                            'rgba(67, 97, 238, 1)',
+                            'rgba(247, 37, 133, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.raw || 0;
+                                    const total = totalUpload + totalDownload;
+                                    const percentage = Math.round((value / total) * 100);
+                                    return `${label}: ${value} GB (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // 图表按钮事件处理
+        function setupChartButtons() {
+            // 总流量和使用率图表按钮
+            document.querySelectorAll('.chart-btn[data-range]').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const chartId = this.dataset.chart;
+                    const range = this.dataset.range;
+
+                    // 更新按钮状态
+                    this.parentElement.querySelectorAll('.chart-btn').forEach(b => {
+                        b.classList.remove('active');
+                    });
+                    this.classList.add('active');
+
+                    // 更新图表数据
+                    if (chartId === 'totalUsageChart') {
+                        updateTotalUsageChart(range);
+                    } else if (chartId === 'percentChart') {
+                        updatePercentChart(range);
+                    }
+                });
+            });
+
+            // 每日上传下载图表按钮
+            document.querySelectorAll('.chart-btn[data-type]').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const chartId = this.dataset.chart;
+                    const type = this.dataset.type;
+
+                    // 更新按钮状态
+                    this.parentElement.querySelectorAll('.chart-btn').forEach(b => {
+                        b.classList.remove('active');
+                    });
+                    this.classList.add('active');
+
+                    // 更新图表数据
+                    if (chartId === 'dailyUsageChart') {
+                        updateDailyUsageChart(type);
+                    }
+                });
+            });
+        }
+
+        // 更新总流量使用趋势图
+        function updateTotalUsageChart(range) {
+            let labels, data;
+
+            if (range === '7') {
+                // 显示最近7天数据
+                labels = dates.slice(-7);
+                data = totalUsed.slice(-7);
+            } else {
+                // 显示全部数据
+                labels = dates;
+                data = totalUsed;
+            }
+
+            totalUsageChart.data.labels = labels;
+            totalUsageChart.data.datasets[1].data = data;
+            totalUsageChart.update();
+        }
+
+        // 更新使用率变化图
+        function updatePercentChart(range) {
+            let labels, data;
+
+            if (range === '7') {
+                // 显示最近7天数据
+                labels = dates.slice(-7);
+                data = usedPercent.slice(-7);
+            } else {
+                // 显示全部数据
+                labels = dates;
+                data = usedPercent;
+            }
+
+            percentChart.data.labels = labels;
+            percentChart.data.datasets[0].data = data;
+            percentChart.update();
+        }
+
+        // 更新每日上传下载图表
+        function updateDailyUsageChart(type) {
+            const uploadData = type === 'download' ? [] : uploadDaily;
+            const downloadData = type === 'upload' ? [] : downloadDaily;
+
+            dailyUsageChart.data.datasets[0].data = uploadData;
+            dailyUsageChart.data.datasets[1].data = downloadData;
+            dailyUsageChart.update();
+        }
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            populateTable();
+            initCharts();
+            setupChartButtons();
+            updateStats(); // 更新统计数据
+        });
+    </script>
+</body>
+</html>

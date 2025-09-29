@@ -1,0 +1,29 @@
+name:
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - _libgcc_mutex=0.1
+  - _openmp_mutex=4.5
+  - bzip2=1.0.8
+  - ca-certificates=2025.8.3
+  - jinja2=3.1.6
+  - ld_impl_linux-64=2.44
+  - libexpat=2.7.1
+  - libffi=3.4.6
+  - libgcc=15.1.0
+  - libgomp=15.1.0
+  - liblzma=5.8.1
+  - libmpdec=4.0.0
+  - libsqlite=3.50.4
+  - libuuid=2.41.2
+  - libzlib=1.3.1
+  - markupsafe=3.0.3
+  - ncurses=6.5
+  - openssl=3.5.3
+  - pip=25.2
+  - python=3.13.7
+  - python_abi=3.13
+  - readline=8.2
+  - tk=8.6.13
+  - tzdata=2025b
