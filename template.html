@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>流量使用监控面板</title>
+    <title>流量使用统计</title>
     <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.min.js"></script>
     <style>
@@ -241,7 +241,7 @@
 <body>
     <div class="container">
         <header>
-            <h1>流量使用监控面板</h1>
+            <h1>流量使用统计</h1>
             <p class="subtitle" id="date-range">YYYY-MM-DD 至 YYYY-MM-DD 流量使用分析</p>
         </header>
 
@@ -331,26 +331,25 @@
         </div>
 
         <div class="data-table">
-            <h2 style="margin-bottom: 20px;">详细数据</h2>
+            <h2 style="margin-bottom: 20px;">原始数据</h2>
             <table>
                 <thead>
                     <tr>
                         <th>日期</th>
-                        <th>上传 (GB)</th>
-                        <th>下载 (GB)</th>
+                        <th>累计上传 (GB)</th>
+                        <th>累计下载 (GB)</th>
                         <th>总使用量 (GB)</th>
                         <th>使用率 (%)</th>
                     </tr>
                 </thead>
                 <tbody id="data-table-body">
-                    <!-- 表格数据将由JavaScript动态生成 -->
                 </tbody>
             </table>
         </div>
 
         <footer>
             <p id="update-info">数据更新时间: YYYY-MM-DD</p>
-            <p>© 2025 流量监控系统 | 基于实际使用数据生成 | Vibe Coding</p>
+            <p>© 2025 Purple4pur | <a href='https://github.com/purple4pur/proxy-usage-dashboard'>你们这里谁最懂 Vibe Coding<a></p>
         </footer>
     </div>
 
