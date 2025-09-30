@@ -406,7 +406,7 @@
         // 计算预计剩余天数（基于过去7天平均增幅）
         function calculateRemainingDays() {
             // 获取过去7天的使用率数据
-            const last7Days = usedPercent.slice(-8，-1);
+            const last7Days = usedPercent.slice(-8, -1);
 
             if (last7Days.length < 2) {
                 return "未知"; // 数据不足无法计算
