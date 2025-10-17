@@ -287,6 +287,7 @@
                     <h2 class="chart-title">已用流量</h2>
                     <div class="chart-actions">
                         <button class="chart-btn" data-chart="totalUsageChart" data-range="7">7天</button>
+                        <button class="chart-btn" data-chart="totalUsageChart" data-range="30">30天</button>
                         <button class="chart-btn active" data-chart="totalUsageChart" data-range="all">全部</button>
                     </div>
                 </div>
@@ -300,6 +301,7 @@
                     <h2 class="chart-title">使用率</h2>
                     <div class="chart-actions">
                         <button class="chart-btn" data-chart="percentChart" data-range="7">7天</button>
+                        <button class="chart-btn" data-chart="percentChart" data-range="30">30天</button>
                         <button class="chart-btn active" data-chart="percentChart" data-range="all">全部</button>
                     </div>
                 </div>
@@ -313,6 +315,7 @@
                     <h2 class="chart-title">每日上传下载量</h2>
                     <div class="chart-actions">
                         <button class="chart-btn" data-chart="dailyUsageChart" data-range="7">7天</button>
+                        <button class="chart-btn" data-chart="dailyUsageChart" data-range="30">30天</button>
                         <button class="chart-btn active" data-chart="dailyUsageChart" data-range="all">全部</button>
                     </div>
                 </div>
@@ -461,7 +464,7 @@
             const tableBody = document.getElementById('data-table-body');
             tableBody.innerHTML = '';
 
-            trafficData.forEach(entry => {
+            trafficData.toReversed().forEach(entry => {
                 const row = document.createElement('tr');
 
                 row.innerHTML = `
@@ -721,19 +724,17 @@
                     const range = this.dataset.range;
 
                     // 更新按钮状态
-                    this.parentElement.querySelectorAll('.chart-btn').forEach(b => {
+                    document.querySelectorAll('.chart-btn').forEach(b => {
                         b.classList.remove('active');
+                        if (b.dataset.range === range) {
+                            b.classList.add('active');
+                        }
                     });
-                    this.classList.add('active');
 
                     // 更新图表数据
-                    if (chartId === 'totalUsageChart') {
-                        updateTotalUsageChart(range);
-                    } else if (chartId === 'percentChart') {
-                        updatePercentChart(range);
-                    } else if (chartId === 'dailyUsageChart') {
-                        updateDailyUsageChart(range);
-                    }
+                    updateTotalUsageChart(range);
+                    updatePercentChart(range);
+                    updateDailyUsageChart(range);
                 });
             });
         }
@@ -742,10 +743,10 @@
         function updateTotalUsageChart(range) {
             let labels, data;
 
-            if (range === '7') {
-                // 显示最近7天数据
-                labels = dates.slice(-7);
-                data = totalUsed.slice(-7);
+            if (!isNaN(range)) {
+                // 显示最近 {range} 天数据
+                labels = dates.slice(-Number(range));
+                data = totalUsed.slice(-Number(range));
             } else {
                 // 显示全部数据
                 labels = dates;
@@ -761,10 +762,10 @@
         function updatePercentChart(range) {
             let labels, data;
 
-            if (range === '7') {
-                // 显示最近7天数据
-                labels = dates.slice(-7);
-                data = usedPercent.slice(-7);
+            if (!isNaN(range)) {
+                // 显示最近 {range} 天数据
+                labels = dates.slice(-Number(range));
+                data = usedPercent.slice(-Number(range));
             } else {
                 // 显示全部数据
                 labels = dates;
@@ -780,14 +781,14 @@
         function updateDailyUsageChart(range) {
             let labels, uploadData, downloadData, totalData;
 
-            if (range === '7') {
-                // 显示最近7天数据
-                labels = dates.slice(-7);
-                uploadData = uploadDaily.slice(-7);
-                downloadData = downloadDaily.slice(-7);
-                totalData = totalDaily.slice(-7);
+            if (!isNaN(range)) {
+                // 显示最近 {range} 天数据
+                labels = dates.slice(-Number(range));
+                uploadData = uploadDaily.slice(-Number(range));
+                downloadData = downloadDaily.slice(-Number(range));
+                totalData = totalDaily.slice(-Number(range));
 
-                // 计算最近7天的日均总流量
+                // 计算最近 {range} 天的日均总流量
                 const avg = totalData.reduce((sum, val) => sum + val, 0) / totalData.length;
 
                 // 更新日均线数据
