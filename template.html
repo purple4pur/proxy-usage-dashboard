@@ -365,6 +365,9 @@
             {% endfor -%}
         ];
 
+        // 总流量
+        const totalGB = {{ total_gb }};
+
         // 是否丢弃第一天 (只影响每日上传下载量图表)
         // discard_day1=true: 丢弃第一天，从第二天开始显示
         // discard_day1=false: 保留第一天，第一天数据设为 0 (默认)
