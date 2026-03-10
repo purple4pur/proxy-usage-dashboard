@@ -374,14 +374,16 @@
         const discardDay1 = {{ 'true' if discard_day1 else 'false' }};
 
         // 计算每日增量数据
-        // 第一天设为 0，从第二天起与前一天相减
+        // discard_day1=true: 丢弃第一天，从第二天开始显示
+        // discard_day1=false: 第一天直接使用当日数据（不减去前一天），从第二天起正常减去前一天
         const dailyIncrements = trafficData.map((entry, index) => {
             if (index === 0) {
+                // 第一天：根据开关决定是设为 0 还是使用实际数据
                 return {
                     date: entry.date,
-                    upload: 0,
-                    download: 0,
-                    total: 0
+                    upload: discardDay1 ? 0 : entry.upload,
+                    download: discardDay1 ? 0 : entry.download,
+                    total: discardDay1 ? 0 : (entry.upload + entry.download)
                 };
             }
 
