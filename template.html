@@ -365,10 +365,13 @@
             {% endfor -%}
         ];
 
-        // 总流量
-        const totalGB = {{ total_gb }};
+        // 是否丢弃第一天 (只影响每日上传下载量图表)
+        // discard_day1=true: 丢弃第一天，从第二天开始显示
+        // discard_day1=false: 保留第一天，第一天数据设为 0 (默认)
+        const discardDay1 = {{ 'true' if discard_day1 else 'false' }};
 
-        // 计算每日增量数据 - 丢弃第一天数据
+        // 计算每日增量数据
+        // 第一天设为 0，从第二天起与前一天相减
         const dailyIncrements = trafficData.map((entry, index) => {
             if (index === 0) {
                 return {
@@ -386,19 +389,22 @@
                 total: (entry.upload - trafficData[index - 1].upload) +
                        (entry.download - trafficData[index - 1].download)
             };
-        }).slice(1);
+        });
 
-        // 计算日均总流量
-        const dailyTotals = dailyIncrements.map(entry => entry.total);
-        const avgTotal = dailyTotals.reduce((sum, val) => sum + val, 0) / dailyTotals.length;
+        // 根据开关决定是否丢弃第一天 (只影响每日上传下载量图表)
+        const processedIncrements = discardDay1 ? dailyIncrements.slice(1) : dailyIncrements;
+
+        // 计算日均总流量 (基于处理后的数据)
+        const dailyTotals = processedIncrements.map(entry => entry.total);
+        const avgTotal = dailyTotals.length > 0 ? dailyTotals.reduce((sum, val) => sum + val, 0) / dailyTotals.length : 0;
 
         // 提取图表所需数据
         const dates = trafficData.map(entry => entry.date.substring(5)); // 格式为 "MM-DD"
         const totalUsed = trafficData.map(entry => entry.totalUsed);
         const usedPercent = trafficData.map(entry => entry.usedPercent);
-        const uploadDaily = dailyIncrements.map(entry => entry.upload);
-        const downloadDaily = dailyIncrements.map(entry => entry.download);
-        const totalDaily = dailyIncrements.map(entry => entry.total);
+        const uploadDaily = processedIncrements.map(entry => entry.upload);
+        const downloadDaily = processedIncrements.map(entry => entry.download);
+        const totalDaily = processedIncrements.map(entry => entry.total);
         const totalUpload = trafficData[trafficData.length - 1].upload;
         const totalDownload = trafficData[trafficData.length - 1].download;
 
@@ -595,7 +601,8 @@
             dailyUsageChart = new Chart(dailyUsageCtx, {
                 type: 'bar',
                 data: {
-                    labels: dates.slice(1),
+                    // 根据开关决定是否包含第一天 (只影响每日上传下载量图表)
+                    labels: discardDay1 ? dates.slice(1) : dates,
                     datasets: [
                         {
                             label: '上传',
@@ -620,7 +627,7 @@
                         },
                         {
                             label: '日均总流量',
-                            data: Array(dates.length - 1).fill(avgTotal),
+                            data: Array(processedIncrements.length).fill(avgTotal),
                             type: 'line',
                             borderColor: 'rgba(255, 193, 7, 1)',
                             backgroundColor: 'rgba(255, 193, 7, 0.1)',
@@ -795,14 +802,14 @@
                 // 更新日均线数据
                 dailyUsageChart.data.datasets[3].data = Array(totalData.length).fill(avg);
             } else {
-                // 显示全部数据
-                labels = dates.slice(1);
+                // 显示全部数据 - 根据开关决定是否包含第一天 (只影响每日上传下载量图表)
+                labels = discardDay1 ? dates.slice(1) : dates;
                 uploadData = uploadDaily;
                 downloadData = downloadDaily;
                 totalData = totalDaily;
 
                 // 使用全局平均值
-                dailyUsageChart.data.datasets[3].data = Array(dates.length - 1).fill(avgTotal);
+                dailyUsageChart.data.datasets[3].data = Array(processedIncrements.length).fill(avgTotal);
             }
 
             dailyUsageChart.data.labels = labels;

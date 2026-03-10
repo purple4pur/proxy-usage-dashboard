@@ -1,3 +1,4 @@
+import argparse
 import csv
 from jinja2 import Environment, FileSystemLoader
 import os
@@ -27,7 +28,7 @@ def process_csv(csv_file):
 
     return traffic_data, total_gb
 
-def generate_html(output_file, traffic_data, total_gb):
+def generate_html(output_file, traffic_data, total_gb, discard_day1):
     # Set up Jinja environment
     env = Environment(loader=FileSystemLoader('.'))
     template = env.get_template('template.html')
@@ -40,7 +41,8 @@ def generate_html(output_file, traffic_data, total_gb):
     html_output = template.render(
         traffic_data=traffic_data,
         total_gb=total_gb,
-        current_time=current_time
+        current_time=current_time,
+        discard_day1=discard_day1
     )
 
     # Write output file
@@ -48,19 +50,19 @@ def generate_html(output_file, traffic_data, total_gb):
         f.write(html_output)
 
 if __name__ == "__main__":
-    # Check command line arguments
-    if len(sys.argv) != 3:
-        print("Usage: python dashboard.py <csv_file> <output_file>")
-        sys.exit(1)
-
-    # Get file paths from command line arguments
-    csv_file = sys.argv[1]
-    output_file = sys.argv[2]
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description='Generate traffic usage dashboard')
+    parser.add_argument('csv_file', help='Input CSV file path')
+    parser.add_argument('output_file', help='Output HTML file path')
+    parser.add_argument('--discard-day1', action='store_true',
+                        help='Discard first day in daily upload/download chart (original behavior). '
+                             'By default, first day is kept with value 0.')
+    args = parser.parse_args()
 
     # Process data
-    traffic_data, total_gb = process_csv(csv_file)
+    traffic_data, total_gb = process_csv(args.csv_file)
 
     # Generate HTML
-    generate_html(output_file, traffic_data, total_gb)
+    generate_html(args.output_file, traffic_data, total_gb, args.discard_day1)
 
-    print(f"Successfully generated dashboard page: {output_file}")
+    print(f"Successfully generated dashboard page: {args.output_file}")
