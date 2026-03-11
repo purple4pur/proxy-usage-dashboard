@@ -606,7 +606,7 @@
                 }
             });
 
-            // 3. 每日上传下载柱状图（使用增量数据）
+            // 3. 每日上传下载柱状图（使用增量数据）- 堆叠柱状图
             const dailyUsageCtx = document.getElementById('dailyUsageChart').getContext('2d');
             dailyUsageChart = new Chart(dailyUsageCtx, {
                 type: 'bar',
@@ -615,25 +615,20 @@
                     labels: discardDay1 ? dates.slice(1) : dates,
                     datasets: [
                         {
-                            label: '上传',
-                            data: uploadDaily,
-                            backgroundColor: 'rgba(67, 97, 238, 0.7)',
-                            borderColor: 'rgba(67, 97, 238, 1)',
-                            borderWidth: 1
-                        },
-                        {
                             label: '下载',
                             data: downloadDaily,
                             backgroundColor: 'rgba(247, 37, 133, 0.7)',
                             borderColor: 'rgba(247, 37, 133, 1)',
-                            borderWidth: 1
+                            borderWidth: 1,
+                            stack: 'stacked'
                         },
                         {
-                            label: '总流量',
-                            data: totalDaily,
-                            backgroundColor: 'rgba(40, 167, 69, 0.7)',
-                            borderColor: 'rgba(40, 167, 69, 1)',
-                            borderWidth: 1
+                            label: '上传',
+                            data: uploadDaily,
+                            backgroundColor: 'rgba(67, 97, 238, 0.7)',
+                            borderColor: 'rgba(67, 97, 238, 1)',
+                            borderWidth: 1,
+                            stack: 'stacked'
                         },
                         {
                             label: '日均总流量',
@@ -669,12 +664,20 @@
                                     }
 
                                     return `${label}: ${value.toFixed(1)} GB`;
+                                },
+                                footer: function(tooltipItems) {
+                                    // 计算并显示当天总流量（下载 + 上传）
+                                    // 使用全局数据确保无论图例是否隐藏，总和都是上传 + 下载
+                                    const dataIndex = tooltipItems[0].dataIndex;
+                                    const total = downloadDaily[dataIndex] + uploadDaily[dataIndex];
+                                    return `总流量：${total.toFixed(1)} GB`;
                                 }
                             }
                         }
                     },
                     scales: {
                         y: {
+                            stacked: true,
                             beginAtZero: true,
                             title: {
                                 display: true,
@@ -682,6 +685,7 @@
                             }
                         },
                         x: {
+                            stacked: true,
                             title: {
                                 display: true,
                                 text: '日期'
@@ -798,35 +802,33 @@
 
         // 更新每日上传下载图表
         function updateDailyUsageChart(range) {
-            let labels, uploadData, downloadData, totalData;
+            let labels, uploadData, downloadData;
 
             if (!isNaN(range)) {
                 // 显示最近 {range} 天数据
                 labels = dates.slice(-Number(range));
                 uploadData = uploadDaily.slice(-Number(range));
                 downloadData = downloadDaily.slice(-Number(range));
-                totalData = totalDaily.slice(-Number(range));
 
                 // 计算最近 {range} 天的日均总流量
+                const totalData = downloadData.map((d, i) => d + uploadData[i]);
                 const avg = totalData.reduce((sum, val) => sum + val, 0) / totalData.length;
 
                 // 更新日均线数据
-                dailyUsageChart.data.datasets[3].data = Array(totalData.length).fill(avg);
+                dailyUsageChart.data.datasets[2].data = Array(totalData.length).fill(avg);
             } else {
                 // 显示全部数据 - 根据开关决定是否包含第一天 (只影响每日上传下载量图表)
                 labels = discardDay1 ? dates.slice(1) : dates;
                 uploadData = uploadDaily;
                 downloadData = downloadDaily;
-                totalData = totalDaily;
 
                 // 使用全局平均值
-                dailyUsageChart.data.datasets[3].data = Array(processedIncrements.length).fill(avgTotal);
+                dailyUsageChart.data.datasets[2].data = Array(processedIncrements.length).fill(avgTotal);
             }
 
             dailyUsageChart.data.labels = labels;
-            dailyUsageChart.data.datasets[0].data = uploadData;
-            dailyUsageChart.data.datasets[1].data = downloadData;
-            dailyUsageChart.data.datasets[2].data = totalData;
+            dailyUsageChart.data.datasets[0].data = downloadData;
+            dailyUsageChart.data.datasets[1].data = uploadData;
             dailyUsageChart.update();
         }
 
