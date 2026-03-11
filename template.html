@@ -19,6 +19,23 @@
             --gray: #6c757d;
             --border: #dee2e6;
             --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --bg-color: #f5f7fb;
+            --card-bg: #ffffff;
+            --text-color: #212529;
+            --table-hover: rgba(67, 97, 238, 0.05);
+            --chart-grid: rgba(0, 0, 0, 0.1);
+        }
+
+        [data-theme="dark"] {
+            --bg-color: #121212;
+            --card-bg: #1e1e1e;
+            --text-color: #ffffff;
+            --border: #404040;
+            --light: #2d2d2d;
+            --gray: #b0b0b0;
+            --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.4);
+            --table-hover: rgba(255, 255, 255, 0.08);
+            --chart-grid: rgba(255, 255, 255, 0.12);
         }
 
         * {
@@ -29,10 +46,11 @@
         }
 
         body {
-            background-color: #f5f7fb;
-            color: var(--dark);
+            background-color: var(--bg-color);
+            color: var(--text-color);
             line-height: 1.6;
             padding: 20px;
+            transition: background-color 0.3s ease, color 0.3s ease;
         }
 
         .container {
@@ -65,12 +83,12 @@
         }
 
         .stat-card {
-            background: white;
+            background: var(--card-bg);
             border-radius: 10px;
             padding: 25px;
             box-shadow: var(--card-shadow);
             text-align: center;
-            transition: transform 0.3s ease;
+            transition: transform 0.3s ease, background-color 0.3s ease;
         }
 
         .stat-card:hover {
@@ -101,12 +119,13 @@
         }
 
         .chart-container {
-            background: white;
+            background: var(--card-bg);
             border-radius: 10px;
             padding: 25px;
             box-shadow: var(--card-shadow);
             display: flex;
             flex-direction: column;
+            transition: background-color 0.3s ease;
         }
 
         .chart-header {
@@ -119,7 +138,7 @@
         .chart-title {
             font-size: 1.4rem;
             font-weight: 600;
-            color: var(--dark);
+            color: var(--text-color);
         }
 
         .chart-actions {
@@ -135,6 +154,7 @@
             cursor: pointer;
             font-size: 0.9rem;
             transition: all 0.2s;
+            color: var(--text-color);
         }
 
         .chart-btn:hover {
@@ -155,11 +175,12 @@
         }
 
         .data-table {
-            background: white;
+            background: var(--card-bg);
             border-radius: 10px;
             padding: 25px;
             box-shadow: var(--card-shadow);
             overflow-x: auto;
+            transition: background-color 0.3s ease;
         }
 
         table {
@@ -175,11 +196,12 @@
 
         th {
             background-color: var(--light);
+            color: var(--text-color);
             font-weight: 600;
         }
 
         tr:hover {
-            background-color: rgba(67, 97, 238, 0.05);
+            background-color: var(--table-hover);
         }
 
         footer {
@@ -188,6 +210,40 @@
             padding: 20px 0;
             color: var(--gray);
             font-size: 0.9rem;
+        }
+
+        /* 主题切换按钮 */
+        .theme-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: var(--card-bg);
+            border: 2px solid var(--border);
+            box-shadow: var(--card-shadow);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            color: var(--text-color);
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+
+        .theme-toggle:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .theme-toggle i {
+            transition: transform 0.3s ease;
+        }
+
+        .theme-toggle:hover i {
+            transform: rotate(20deg);
         }
 
         @media (max-width: 768px) {
@@ -205,6 +261,14 @@
 
             .chart-title {
                 font-size: 1.2rem;
+            }
+
+            .theme-toggle {
+                width: 45px;
+                height: 45px;
+                top: 15px;
+                right: 15px;
+                font-size: 1.3rem;
             }
         }
 
@@ -237,10 +301,21 @@
                 padding: 4px 8px;
                 font-size: 0.8rem;
             }
+
+            .theme-toggle {
+                width: 40px;
+                height: 40px;
+                top: 10px;
+                right: 10px;
+                font-size: 1.2rem;
+            }
         }
     </style>
 </head>
 <body>
+    <button class="theme-toggle" id="theme-toggle" title="切换深色模式">
+        <i class="fa fa-moon-o"></i>
+    </button>
     <div class="container">
         <header>
             <h1>流量使用统计</h1>
@@ -364,6 +439,30 @@
 
     <script>
         // 从CSV数据生成的结构化数据
+        // ==================== 主题颜色配置 ====================
+        const THEME_COLORS = {
+            light: {
+                grid: 'rgba(0, 0, 0, 0.1)',
+                text: '#212529',
+                tooltipBorder: 'rgba(255, 255, 255, 0.1)'
+            },
+            dark: {
+                grid: 'rgba(255, 255, 255, 0.12)',
+                text: '#ffffff',
+                tooltipBorder: 'rgba(255, 255, 255, 0.2)'
+            }
+        };
+
+        /**
+         * 获取当前主题的颜色配置
+         * @returns {Object} 包含 grid, text, tooltipBorder 颜色值的对象
+         */
+        function getThemeColors() {
+            const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+            return THEME_COLORS[isDark ? 'dark' : 'light'];
+        }
+
+        // ==================== 数据初始化 ====================
         const trafficData = [
             {% for entry in traffic_data -%}
             {date: '{{ entry.date }}', upload: {{ entry.upload }}, download: {{ entry.download }}, totalUsed: {{ entry.totalUsed }}, usedPercent: {{ entry.usedPercent }}}{% if not loop.last -%},{% endif %}
@@ -496,8 +595,15 @@
             });
         }
 
-        // 初始化图表
+        /**
+         * 初始化所有图表
+         */
         function initCharts() {
+            // 获取当前主题颜色配置
+            const colors = getThemeColors();
+            const gridColor = colors.grid;
+            const textColor = colors.text;
+
             // 1. 总流量使用趋势图
             const totalUsageCtx = document.getElementById('totalUsageChart').getContext('2d');
             totalUsageChart = new Chart(totalUsageCtx, {
@@ -531,10 +637,18 @@
                     plugins: {
                         legend: {
                             position: 'top',
+                            labels: {
+                                color: textColor
+                            }
                         },
                         tooltip: {
                             mode: 'index',
-                            intersect: false
+                            intersect: false,
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            titleColor: '#ffffff',
+                            bodyColor: '#ffffff',
+                            borderColor: colors.tooltipBorder,
+                            borderWidth: 1
                         }
                     },
                     scales: {
@@ -542,13 +656,30 @@
                             beginAtZero: true,
                             title: {
                                 display: true,
-                                text: '流量 (GB)'
+                                text: '流量 (GB)',
+                                color: textColor
+                            },
+                            ticks: {
+                                color: textColor,
+                                grid: {
+                                    color: gridColor
+                                }
+                            },
+                            grid: {
+                                color: gridColor
                             }
                         },
                         x: {
                             title: {
                                 display: true,
-                                text: '日期'
+                                text: '日期',
+                                color: textColor
+                            },
+                            ticks: {
+                                color: textColor
+                            },
+                            grid: {
+                                color: gridColor
                             }
                         }
                     }
@@ -577,10 +708,18 @@
                     plugins: {
                         legend: {
                             position: 'top',
+                            labels: {
+                                color: textColor
+                            }
                         },
                         tooltip: {
                             mode: 'index',
-                            intersect: false
+                            intersect: false,
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            titleColor: '#ffffff',
+                            bodyColor: '#ffffff',
+                            borderColor: colors.tooltipBorder,
+                            borderWidth: 1
                         }
                     },
                     scales: {
@@ -588,18 +727,33 @@
                             beginAtZero: true,
                             title: {
                                 display: true,
-                                text: '使用率 (%)'
+                                text: '使用率 (%)',
+                                color: textColor
                             },
                             ticks: {
+                                color: textColor,
+                                grid: {
+                                    color: gridColor
+                                },
                                 callback: function(value) {
                                     return value + '%';
                                 }
+                            },
+                            grid: {
+                                color: gridColor
                             }
                         },
                         x: {
                             title: {
                                 display: true,
-                                text: '日期'
+                                text: '日期',
+                                color: textColor
+                            },
+                            ticks: {
+                                color: textColor
+                            },
+                            grid: {
+                                color: gridColor
                             }
                         }
                     }
@@ -649,10 +803,18 @@
                     plugins: {
                         legend: {
                             position: 'top',
+                            labels: {
+                                color: textColor
+                            }
                         },
                         tooltip: {
                             mode: 'index',
                             intersect: false,
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            titleColor: '#ffffff',
+                            bodyColor: '#ffffff',
+                            borderColor: colors.tooltipBorder,
+                            borderWidth: 1,
                             callbacks: {
                                 label: function(context) {
                                     const label = context.dataset.label || '';
@@ -681,14 +843,31 @@
                             beginAtZero: true,
                             title: {
                                 display: true,
-                                text: '流量 (GB)'
+                                text: '流量 (GB)',
+                                color: textColor
+                            },
+                            ticks: {
+                                color: textColor,
+                                grid: {
+                                    color: gridColor
+                                }
+                            },
+                            grid: {
+                                color: gridColor
                             }
                         },
                         x: {
                             stacked: true,
                             title: {
                                 display: true,
-                                text: '日期'
+                                text: '日期',
+                                color: textColor
+                            },
+                            ticks: {
+                                color: textColor
+                            },
+                            grid: {
+                                color: gridColor
                             }
                         }
                     }
@@ -720,8 +899,16 @@
                     plugins: {
                         legend: {
                             position: 'top',
+                            labels: {
+                                color: textColor
+                            }
                         },
                         tooltip: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            titleColor: '#ffffff',
+                            bodyColor: '#ffffff',
+                            borderColor: colors.tooltipBorder,
+                            borderWidth: 1,
                             callbacks: {
                                 label: function(context) {
                                     const label = context.label || '';
@@ -852,8 +1039,85 @@
             ratioChart.update();
         }
 
+        // ==================== 主题切换功能 ====================
+        /**
+         * 初始化主题 - 从 localStorage 读取用户偏好并应用
+         */
+        function initTheme() {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            updateThemeIcon(savedTheme);
+        }
+
+        /**
+         * 切换主题 - 在亮色/深色模式间切换并保存偏好
+         */
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            updateThemeIcon(newTheme);
+            updateChartsTheme();
+        }
+
+        /**
+         * 更新主题切换按钮的图标
+         * @param {string} theme - 当前主题 ('light' 或 'dark')
+         */
+        function updateThemeIcon(theme) {
+            const icon = document.querySelector('#theme-toggle i');
+            if (icon) {
+                icon.className = theme === 'dark' ? 'fa fa-sun-o' : 'fa fa-moon-o';
+            }
+        }
+
+        /**
+         * 更新所有图表的颜色配置以匹配当前主题
+         * 会更新 legend、tooltip 和坐标轴的颜色
+         */
+        function updateChartsTheme() {
+            const colors = getThemeColors();
+            const textColor = colors.text;
+            const gridColor = colors.grid;
+            const tooltipBorderColor = colors.tooltipBorder;
+
+            // 更新所有图表的颜色配置
+            [totalUsageChart, percentChart, dailyUsageChart, ratioChart].forEach(chart => {
+                if (chart) {
+                    // 更新 legend 颜色
+                    chart.options.plugins.legend.labels.color = textColor;
+
+                    // 更新 tooltip 颜色（统一白字黑底）
+                    chart.options.plugins.tooltip.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+                    chart.options.plugins.tooltip.titleColor = '#ffffff';
+                    chart.options.plugins.tooltip.bodyColor = '#ffffff';
+                    chart.options.plugins.tooltip.borderColor = tooltipBorderColor;
+
+                    // 只有存在 scales 的图表才更新坐标轴（饼图没有 scales）
+                    if (chart.options.scales) {
+                        if (chart.options.scales.x) {
+                            chart.options.scales.x.ticks.color = textColor;
+                            chart.options.scales.x.title.color = textColor;
+                            chart.options.scales.x.grid.color = gridColor;
+                        }
+                        if (chart.options.scales.y) {
+                            chart.options.scales.y.ticks.color = textColor;
+                            chart.options.scales.y.title.color = textColor;
+                            chart.options.scales.y.grid.color = gridColor;
+                        }
+                    }
+
+                    // 重新渲染图表
+                    chart.update();
+                }
+            });
+        }
+
         // 页面加载完成后初始化
         document.addEventListener('DOMContentLoaded', function() {
+            initTheme(); // 初始化主题
+            document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
             populateTable();
             initCharts();
             setupChartButtons();
