@@ -328,6 +328,11 @@
             <div class="chart-container">
                 <div class="chart-header">
                     <h2 class="chart-title">上传下载比例</h2>
+                    <div class="chart-actions">
+                        <button class="chart-btn" data-chart="ratioChart" data-range="7">7 天</button>
+                        <button class="chart-btn" data-chart="ratioChart" data-range="30">30 天</button>
+                        <button class="chart-btn active" data-chart="ratioChart" data-range="all">全部</button>
+                    </div>
                 </div>
                 <div class="chart-wrapper">
                     <canvas id="ratioChart"></canvas>
@@ -717,9 +722,9 @@
                                 label: function(context) {
                                     const label = context.label || '';
                                     const value = context.raw || 0;
-                                    const total = totalUpload + totalDownload;
-                                    const percentage = Math.round((value / total) * 100);
-                                    return `${label}: ${value} GB (${percentage}%)`;
+                                    const total = ratioChart.data.datasets[0].data.reduce((sum, val) => sum + val, 0);
+                                    const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
+                                    return `${label}: ${value.toFixed(1)} GB (${percentage}%)`;
                                 }
                             }
                         }
@@ -736,7 +741,7 @@
                     const chartId = this.dataset.chart;
                     const range = this.dataset.range;
 
-                    // 更新按钮状态
+                    // 更新所有按钮状态 - 所有图表同步切换
                     document.querySelectorAll('.chart-btn').forEach(b => {
                         b.classList.remove('active');
                         if (b.dataset.range === range) {
@@ -744,10 +749,11 @@
                         }
                     });
 
-                    // 更新图表数据
+                    // 更新所有图表数据
                     updateTotalUsageChart(range);
                     updatePercentChart(range);
                     updateDailyUsageChart(range);
+                    updateRatioChart(range);
                 });
             });
         }
@@ -822,6 +828,26 @@
             dailyUsageChart.data.datasets[1].data = downloadData;
             dailyUsageChart.data.datasets[2].data = totalData;
             dailyUsageChart.update();
+        }
+
+        // 更新上传下载比例饼图
+        function updateRatioChart(range) {
+            let uploadSum, downloadSum;
+
+            if (!isNaN(range)) {
+                // 计算最近 {range} 天的上传下载总量
+                const recentUpload = uploadDaily.slice(-Number(range));
+                const recentDownload = downloadDaily.slice(-Number(range));
+                uploadSum = recentUpload.reduce((sum, val) => sum + val, 0);
+                downloadSum = recentDownload.reduce((sum, val) => sum + val, 0);
+            } else {
+                // 显示全部数据
+                uploadSum = totalUpload;
+                downloadSum = totalDownload;
+            }
+
+            ratioChart.data.datasets[0].data = [uploadSum, downloadSum];
+            ratioChart.update();
         }
 
         // 页面加载完成后初始化
