@@ -840,10 +840,15 @@
                                     return `${label}: ${value.toFixed(1)} GB`;
                                 },
                                 footer: function(tooltipItems) {
-                                    // 计算并显示当天总流量（下载 + 上传）
-                                    // 使用全局数据确保无论图例是否隐藏，总和都是上传 + 下载
-                                    const dataIndex = tooltipItems[0].dataIndex;
-                                    const total = downloadDaily[dataIndex] + uploadDaily[dataIndex];
+                                    // 计算当天总流量（从 tooltip 数据中获取上传和下载值）
+                                    let uploadVal = 0;
+                                    let downloadVal = 0;
+                                    tooltipItems.forEach(item => {
+                                        const label = item.dataset.label || '';
+                                        if (label === '上传') uploadVal = item.raw || 0;
+                                        if (label === '下载') downloadVal = item.raw || 0;
+                                    });
+                                    const total = uploadVal + downloadVal;
                                     return `总流量：${total.toFixed(1)} GB`;
                                 }
                             }
