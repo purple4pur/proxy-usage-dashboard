@@ -919,7 +919,7 @@
                             font: { weight: 'bold', size: 14 },
                             formatter: function(value, context) {
                                 const total = context.dataset.data.reduce((sum, val) => sum + val, 0);
-                                const pct = total > 0 ? Math.round((value / total) * 100) : 0;
+                                const pct = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
                                 return pct + '%';
                             }
                         },
@@ -940,7 +940,7 @@
                                     const label = context.label || '';
                                     const value = context.raw || 0;
                                     const total = ratioChart.data.datasets[0].data.reduce((sum, val) => sum + val, 0);
-                                    const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
+                                    const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
                                     return `${label}: ${value.toFixed(1)} GB (${percentage}%)`;
                                 }
                             }
@@ -1007,6 +1007,14 @@
                 labels = dates;
                 data = usedPercent;
             }
+
+            // 计算当前数据的最小值和最大值，并添加整数余量
+            const minValue = Math.min(...data);
+            const maxValue = Math.max(...data);
+
+            // 设置纵坐标范围：最小值向下取整为下限，最大值向上取整为上限
+            percentChart.options.scales.y.min = Math.floor(minValue);
+            percentChart.options.scales.y.max = Math.ceil(maxValue);
 
             percentChart.data.labels = labels;
             percentChart.data.datasets[0].data = data;
