@@ -1,7 +1,7 @@
 [project]
 name = "traffic-dashboard"
 version = "0.1.0"
-description = "Add your description here"
+description = "流量使用统计"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
