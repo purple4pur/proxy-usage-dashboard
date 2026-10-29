@@ -88,8 +88,9 @@ The generator reads these fields. Additional columns remain compatible.
 | `Total_Used_GB` | Recorded cumulative usage in GB |
 | `Used_Percent` | Recorded usage percentage |
 
+Each required column must appear exactly once. Additional columns are allowed.
 Numeric fields must be finite and nonnegative. Usage above the quota is valid.
-An empty CSV with headers produces an empty dashboard.
+An empty CSV with all required headers produces an empty dashboard.
 Charts use the final input snapshot for each date and sort dates chronologically.
 The table retains duplicate records. Date controls use calendar days.
 For missing dates, bars show interval totals and averages use elapsed days.

@@ -6,10 +6,9 @@
     <meta name="color-scheme" content="light dark">
     <title>流量使用统计 · Traffic Atlas</title>
     <script>
-        try {
-            const saved = localStorage.getItem('theme');
-            document.documentElement.dataset.theme = saved === 'light' || saved === 'dark' ? saved : (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-        } catch (_) {}
+        let savedTheme = null;
+        try { savedTheme = localStorage.getItem('theme'); } catch (_) {}
+        document.documentElement.dataset.theme = savedTheme === 'light' || savedTheme === 'dark' ? savedTheme : (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
     </script>
     <style>
         :root {
@@ -26,6 +25,7 @@
             --ink: #243b3b;
             --ink-text: #fcf9f0;
             --ink-muted: #c2d0c8;
+            --meter-track: #52655e;
             --focus: #286965;
             --shadow: 0 1px 2px rgb(36 45 50 / 4%), 0 4px 16px rgb(36 45 50 / 4%);
             --font-body: 'Avenir Next', 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
@@ -94,8 +94,8 @@
         .unit { font: 14px var(--font-mono); margin-left: 8px; letter-spacing: 0; }
         .quota-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
         .badge { font-size: 14px; border: 1px solid currentColor; border-radius: 20px; padding: 2px 12px; white-space: nowrap; }
-        .quota-meter { appearance: none; width: 100%; height: 6px; border: 0; border-radius: 4px; overflow: hidden; background: var(--ink-muted); margin: 16px 0 12px; }
-        .quota-meter::-webkit-progress-bar { background: var(--ink-muted); }
+        .quota-meter { appearance: none; width: 100%; height: 6px; border: 0; border-radius: 4px; overflow: hidden; background: var(--meter-track); margin: 16px 0 12px; }
+        .quota-meter::-webkit-progress-bar { background: var(--meter-track); }
         .quota-meter::-webkit-progress-value { background: var(--ink-text); }
         .quota-meter::-moz-progress-bar { background: var(--ink-text); }
         .quota-caption { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; font-size: 14px; }
@@ -123,6 +123,7 @@
         .chart .grid-line { stroke: var(--border); stroke-width: 1; }
         .chart .download { fill: var(--download); }
         .chart .upload { fill: var(--upload); }
+        .chart .download, .chart .upload { stroke: var(--panel); stroke-width: 1; }
         .chart .line-used { fill: none; stroke: var(--download); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
         .chart .line-percent { fill: none; stroke: var(--upload); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
         .chart .reference { fill: none; stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 5 5; }
@@ -153,6 +154,7 @@
         .records { padding: 0; overflow: hidden; }
         summary { min-height: 64px; padding: 20px 24px; font-size: 20px; font-weight: 600; }
         summary::marker { color: var(--accent); }
+        summary:focus-visible, .table-scroll:focus-visible { outline-offset: -6px; }
         .record-tools { padding: 0 24px 20px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; font-size: 14px; }
         .record-tools label { color: var(--muted); }
         .record-count { margin-left: auto; color: var(--muted); }
@@ -279,7 +281,7 @@
                 <div class="inspect"><label for="inspect-date">查看某日</label><select id="inspect-date" aria-describedby="inspect-values"></select><output id="inspect-values" aria-live="polite">选择日期以查看具体用量</output><span class="inspect-hint">也可移动指针查看图表</span></div>
             </section>
             <section id="trends" aria-labelledby="trends-heading"><div class="section-heading"><h2 id="trends-heading">趋势分析</h2><p>与上方日期范围同步</p></div><div class="trend-grid"><article class="panel"><div class="panel-header"><div><h3 id="total-heading">已用流量趋势</h3><p>累计用量与总可用流量对照 · GB</p></div><span class="legend"><i class="swatch average" aria-hidden="true"></i>总额度</span></div><svg id="total-chart" class="chart" role="img" aria-labelledby="total-heading total-summary"></svg><p class="chart-foot" id="total-summary">选择日期以查看累计用量</p></article><article class="panel"><div class="panel-header"><div><h3 id="percent-heading">使用率变化</h3><p>CSV 中记录的累计使用率 · %</p></div></div><svg id="percent-chart" class="chart" role="img" aria-labelledby="percent-heading percent-summary"></svg><p class="chart-foot" id="percent-summary">选择日期以查看使用率</p></article></div></section>
-            <details class="panel records" id="records"><summary>详细数据</summary><div class="record-tools"><label for="date-search">筛选日期</label><input id="date-search" type="search" placeholder="例如 2026-10" aria-controls="data-table-body"><span class="record-count" id="record-count" role="status"></span></div><div class="table-scroll" role="region" aria-label="原始流量记录，可横向滚动" tabindex="0"><table><caption>全部原始记录 · 最新在前 · 图表日期范围不影响此表</caption><thead><tr><th scope="col">日期</th><th scope="col">累计上传 (GB)</th><th scope="col">累计下载 (GB)</th><th scope="col">总使用量 (GB)</th><th scope="col">使用率 (%)</th></tr></thead><tbody id="data-table-body">{% for entry in (traffic_data | reverse | list)[:20] %}<tr><td>{{ entry.date }}</td><td>{{ '%.1f' | format(entry.upload) }}</td><td>{{ '%.1f' | format(entry.download) }}</td><td>{{ '%.1f' | format(entry.totalUsed) }}</td><td>{{ '%.1f' | format(entry.usedPercent) }}%</td></tr>{% endfor %}</tbody></table></div><div class="pagination"><span id="page-description">最近 20 条记录</span><button type="button" id="previous-page" aria-label="上一页记录">上一页</button><button type="button" id="next-page" aria-label="下一页记录">下一页</button></div></details>
+            <details class="panel records" id="records"><summary>详细数据</summary><div class="record-tools"><label for="date-search">筛选日期</label><input id="date-search" type="search" placeholder="例如 2026-10" aria-controls="data-table-body"><span class="record-count" id="record-count" role="status"></span></div><div class="table-scroll" role="region" aria-label="原始流量记录，可横向滚动" tabindex="0"><table><caption>全部原始记录 · 最新在前 · 图表日期范围不影响此表</caption><thead><tr><th scope="col">日期</th><th scope="col">累计上传 (GB)</th><th scope="col">累计下载 (GB)</th><th scope="col">总使用量 (GB)</th><th scope="col">使用率 (%)</th></tr></thead><tbody id="data-table-body">{% for entry in (traffic_data | sort(attribute='date', reverse=true))[:20] %}<tr><td>{{ entry.date }}</td><td>{{ '%.1f' | format(entry.upload) }}</td><td>{{ '%.1f' | format(entry.download) }}</td><td>{{ '%.1f' | format(entry.totalUsed) }}</td><td>{{ '%.1f' | format(entry.usedPercent) }}%</td></tr>{% endfor %}</tbody></table></div><div class="pagination"><span id="page-description">最近 20 条记录</span><button type="button" id="previous-page" aria-label="上一页记录">上一页</button><button type="button" id="next-page" aria-label="下一页记录">下一页</button></div></details>
             <footer><p>数据更新时间：{{ current_time }} UTC+8<br>© 2025-{{ current_time[:4] }} Purple4pur</p><a href="https://github.com/purple4pur/proxy-usage-dashboard">查看项目 ↗</a></footer>
         </main>
     </div>
@@ -291,7 +293,7 @@
         const DAY         = 86400000;
         const PAGE_SIZE   = 20;
         const $           = id => document.getElementById(id);
-        const number      = value => Number(value).toLocaleString('zh-CN', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+        const number      = value => Number.isFinite(value) ? value.toLocaleString('zh-CN', { notation: Math.abs(value) >= 1e9 ? 'scientific' : 'standard', minimumFractionDigits: 1, maximumFractionDigits: 1 }) : '超出范围';
         const sum         = (rows, key) => rows.reduce((total, row) => total + row[key], 0);
         const dayTime     = day => Date.parse(day + 'T00:00:00+08:00');
         const rawRecords  = trafficData.slice().sort((a, b) => b.date.localeCompare(a.date));
@@ -337,7 +339,12 @@
             const elapsed   = (dayTime(latest.date) - dayTime(previous.date)) / DAY;
             const growth    = latest.usedPercent - previous.usedPercent;
             if (growth <= 0 || elapsed <= 0) return null;
-            return Math.max(0, Math.ceil((100 - latest.usedPercent) / (growth / elapsed)));
+            const estimate = (100 - latest.usedPercent) / (growth / elapsed);
+            if (!Number.isFinite(estimate)) return null;
+            // Treat arithmetic noise near whole days as the same forecast.
+            const nearest   = Math.round(estimate);
+            const tolerance = Number.EPSILON * Math.max(1, Math.abs(estimate)) * (4 + (latest.usedPercent + previous.usedPercent) / growth);
+            return Math.max(0, Math.ceil(Math.abs(estimate - nearest) <= tolerance ? nearest : estimate));
         }
 
         function updateStats() {
@@ -377,7 +384,7 @@
                            rows,
                            kind) {
             const svg    = $(id);
-            const width  = Math.max(280, svg.clientWidth);
+            const width  = svg.clientWidth;
             const height = 248;
             const left   = 52;
             const right  = width - 16;
@@ -385,26 +392,28 @@
             const bottom = height - 36;
             svg.setAttribute('viewBox', '0 0 ' + width + ' ' + height);
             svg.replaceChildren();
+            svg.onpointermove = null;
             chartSelections.delete(id);
-            if (!rows.length) {
+            const values = rows.map(row => kind === 'daily' ? row.total : kind === 'percent' ? row.usedPercent : row.totalUsed);
+            const invalid = values.some(value => !Number.isFinite(value));
+            if (!rows.length || invalid) {
                 const label = svgElement('text', { x: width / 2, y: height / 2, 'text-anchor': 'middle' });
-                label.textContent = '所选范围暂无记录';
+                label.textContent = invalid ? '数值超出可显示范围' : '所选范围暂无记录';
                 svg.append(label);
                 return;
             }
-            const values = rows.map(row => kind === 'daily' ? row.total : kind === 'percent' ? row.usedPercent : row.totalUsed);
             let largest  = kind === 'total' ? Math.max(1, totalGB) : 1;
             values.forEach(value => largest = Math.max(largest, value));
             const magnitude = Math.pow(10, Math.floor(Math.log10(largest)));
-            const maximum   = Math.ceil(largest / magnitude * 2) / 2 * magnitude;
+            const maximum   = Math.min(Number.MAX_VALUE, Math.ceil(largest / magnitude * 2) / 2 * magnitude);
             const y         = value => bottom - value / maximum * (bottom - top);
             const step      = (right - left) / rows.length;
             const x         = index => left + step * (index + .5);
             for (let index = 0; index <= 4; index++) {
-                const value = maximum * index / 4;
+                const value = maximum * (index / 4);
                 svg.append(svgElement('line', { x1: left, y1: y(value), x2: right, y2: y(value), class: 'grid-line' }));
                 const tick = svgElement('text', { x: left - 8, y: y(value) + 4, 'text-anchor': 'end' });
-                tick.textContent = Number(value.toFixed(1)).toLocaleString('zh-CN');
+                tick.textContent = value >= 1e6 ? value.toExponential(1) : Number(value.toFixed(1)).toLocaleString('zh-CN');
                 svg.append(tick);
             }
             const labelCount = Math.min(rows.length, Math.max(2, Math.floor((right - left) / 80)));
@@ -415,15 +424,24 @@
                 svg.append(tick);
             }
             if (kind === 'daily') {
-                const barWidth = Math.max(.5, Math.min(28, step * .6));
+                const barWidth     = Math.min(28, step * .6);
+                const downloadBars = [];
+                const uploadBars   = [];
+                // Keep every bar as a subpath while bounding the DOM size.
                 rows.forEach((row, index) => {
-                    const download = svgElement('rect', { x: x(index) - barWidth / 2, y: y(row.download), width: barWidth, height: bottom - y(row.download), class: 'download' });
-                    const upload   = svgElement('rect', { x: x(index) - barWidth / 2, y: y(row.total), width: barWidth, height: y(row.download) - y(row.total), class: 'upload' });
-                    svg.append(download, upload);
+                    const barLeft     = x(index) - barWidth / 2;
+                    const downloadTop = y(row.download);
+                    const uploadTop   = y(row.total);
+                    downloadBars.push('M' + barLeft + ',' + downloadTop + 'h' + barWidth + 'v' + (bottom - downloadTop) + 'h' + -barWidth + 'Z');
+                    uploadBars.push('M' + barLeft + ',' + uploadTop + 'h' + barWidth + 'v' + (downloadTop - uploadTop) + 'h' + -barWidth + 'Z');
                 });
+                const downloadShape = svgElement('path', { d: downloadBars.join(' '), class: 'download' });
+                const uploadShape   = svgElement('path', { d: uploadBars.join(' '), class: 'upload' });
+                [downloadShape, uploadShape].forEach(shape => shape.style.strokeWidth = Math.min(1, barWidth / 4));
+                svg.append(downloadShape, uploadShape);
                 const elapsed = sum(rows, 'interval') || rows.length;
                 const average = sum(rows, 'total') / elapsed;
-                svg.append(svgElement('line', { x1: left, y1: y(average), x2: right, y2: y(average), class: 'reference' }));
+                if (Number.isFinite(average)) svg.append(svgElement('line', { x1: left, y1: y(average), x2: right, y2: y(average), class: 'reference' }));
             } else {
                 const path = values.map((value, index) => (index ? 'L' : 'M') + x(index) + ',' + y(value)).join(' ');
                 svg.append(svgElement('path', { d: path + ' L' + x(rows.length - 1) + ',' + bottom + ' L' + x(0) + ',' + bottom + ' Z', class: 'area' }));
@@ -436,8 +454,8 @@
             chartSelections.set(id, { marker, positions: new Map(rows.map((row, index) => [row.date, x(index)])) });
             updateSelections();
             svg.onpointermove = event => {
-                const bounds = svg.getBoundingClientRect();
-                const index  = Math.max(0, Math.min(rows.length - 1, Math.floor((event.clientX - bounds.left - left) / step)));
+                const point = new DOMPoint(event.clientX, event.clientY).matrixTransform(svg.getScreenCTM().inverse());
+                const index = Math.max(0, Math.min(rows.length - 1, Math.floor((point.x - left) / step)));
                 inspectDate(rows[index].date);
             };
         }
@@ -491,14 +509,24 @@
             const upload   = range === 'all' && latest ? latest.upload : sum(selectedDaily, 'upload');
             const download = range === 'all' && latest ? latest.download : sum(selectedDaily, 'download');
             const total    = upload + download;
-            const percent  = total ? download / total * 100 : 0;
+            let percent    = total ? download / total * 100 : 0;
+            if (!Number.isFinite(total)) {
+                const rows  = range === 'all' && latest ? [latest] : selectedDaily;
+                const scale = rows.reduce((scale, row) => Math.max(scale, row.upload, row.download), 0);
+                const parts = rows.reduce((parts, row) => ({ upload: parts.upload + row.upload / scale, download: parts.download + row.download / scale }), { upload: 0, download: 0 });
+                percent = parts.download / (parts.upload + parts.download) * 100;
+            }
             setText('ratio-total', number(total));
             setText('download-ratio', number(download) + ' GB · ' + number(percent) + '%');
             setText('upload-ratio', number(upload) + ' GB · ' + number(total ? 100 - percent : 0) + '%');
             setText('ratio-note', range === 'all' ? '最新记录的累计上传与下载' : '所选范围内的新增流量');
-            $('ratio-download').setAttribute('stroke-dasharray', percent + ' ' + (100 - percent));
-            $('ratio-upload').setAttribute('stroke-dasharray', (total ? 100 - percent : 0) + ' ' + (total ? percent : 100));
-            $('ratio-upload').setAttribute('stroke-dashoffset', String(-percent));
+            const gap            = total ? Math.min(1, percent / 2, (100 - percent) / 2) : 0;
+            const downloadLength = percent - gap;
+            const uploadLength   = total ? 100 - percent - gap : 0;
+            $('ratio-download').setAttribute('stroke-dasharray', downloadLength + ' ' + (100 - downloadLength));
+            $('ratio-download').setAttribute('stroke-dashoffset', String(-gap / 2));
+            $('ratio-upload').setAttribute('stroke-dasharray', uploadLength + ' ' + (100 - uploadLength));
+            $('ratio-upload').setAttribute('stroke-dashoffset', String(-percent - gap / 2));
             $('inspect-date').replaceChildren(...selectedRecords.map(row => {
                 const option = document.createElement('option');
                 option.value = row.date;

@@ -1,6 +1,9 @@
 """Run real browser checks. Install the browser group and Chromium first."""
+import re
 import sys
 import threading
+from datetime import date, timedelta
+from decimal import Decimal, ROUND_HALF_UP
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import tempfile
@@ -61,7 +64,8 @@ class BrowserChecks(unittest.TestCase):
         self.assertEqual(self.page.locator('#remaining-gb').inner_text(), '1,350.5')
         self.assertEqual(self.page.locator('#remaining-days').inner_text(), '120')
         self.assertEqual(self.page.locator('#inspect-date option').count(), 14)
-        self.assertEqual(self.page.locator('#daily-chart rect').count(), 28)
+        self.assertTrue(self.page.locator('#daily-chart .download').first.is_visible())
+        self.assertTrue(self.page.locator('#daily-chart .upload').first.is_visible())
         self.assertEqual(self.page.locator('svg[role="img"]').count(), 4)
         self.assertEqual(self.page.locator('#daily-average').inner_text(), '12.7 GB')
 
@@ -70,7 +74,24 @@ class BrowserChecks(unittest.TestCase):
         for value, count in [('7', 7), ('30', 30), ('all', 45), ('14', 14)]:
             self.page.locator('[data-range="' + value + '"]').click()
             self.assertEqual(self.page.locator('#inspect-date option').count(), count)
-            self.assertEqual(self.page.locator('#daily-chart rect').count(), count * 2)
+            for chart, series, field in [('total-chart', 'line-used', 'totalUsed'), ('percent-chart', 'line-percent', 'usedPercent')]:
+                svg    = self.page.locator('#' + chart)
+                path   = svg.locator('.' + series).get_attribute('d')
+                points = [(float(x), float(y)) for x, y in re.findall(r'[ML]([\d.e+\-]+),([\d.e+\-]+)', path)]
+                ticks  = svg.locator('text[text-anchor="end"]').all_text_contents()
+                grid   = svg.locator('.grid-line').evaluate_all("nodes => nodes.map(node => Number(node.getAttribute('y1')))")
+                self.assertEqual(len(points), count)
+                maximum = float(ticks[-1].replace(',', ''))
+                for (_, plotted_y), row in zip(points, self.data[-count:]):
+                    expected_y = grid[0] + row[field] / maximum * (grid[-1] - grid[0])
+                    self.assertAlmostEqual(plotted_y, expected_y, places=5)
+            previous = self.data[-count - 1] if count < len(self.data) else {'upload': 0, 'download': 0}
+            upload   = Decimal(str(self.data[-1]['upload'])) - Decimal(str(previous['upload']))
+            download = Decimal(str(self.data[-1]['download'])) - Decimal(str(previous['download']))
+            total    = upload + download
+            self.assertEqual(self.page.locator('#ratio-total').inner_text(), f'{total:,.1f}')
+            self.assertEqual(self.page.locator('#download-ratio').inner_text(), f'{download:,.1f} GB · {(download / total * 100).quantize(Decimal('.1'), rounding=ROUND_HALF_UP)}%')
+            self.assertEqual(self.page.locator('#upload-ratio').inner_text(), f'{upload:,.1f} GB · {(upload / total * 100).quantize(Decimal('.1'), rounding=ROUND_HALF_UP)}%')
             self.assertEqual(self.page.locator('.range-btn[aria-pressed="true"]').count(), 1)
             self.assertEqual(self.page.locator('.range-btn[aria-pressed="true"]').get_attribute('data-range'), value)
             self.assertIn('2026-10-29', self.page.locator('#total-summary').inner_text())
@@ -80,13 +101,49 @@ class BrowserChecks(unittest.TestCase):
 
     def test_keyboard_date_inspection_preserves_chart_nodes(self):
         self.load()
-        self.page.evaluate("window.originalBar = document.querySelector('#daily-chart rect')")
+        self.page.evaluate("window.originalBar = document.querySelector('#daily-chart .download')")
         self.page.locator('#inspect-date').focus()
         self.page.locator('#inspect-date').press('Home')
         self.assertEqual(self.page.locator('#inspect-date').input_value(), '2026-10-16')
         self.assertIn('2026-10-16', self.page.locator('#total-summary').inner_text())
-        self.assertTrue(self.page.evaluate("window.originalBar === document.querySelector('#daily-chart rect')"))
+        self.assertTrue(self.page.evaluate("window.originalBar === document.querySelector('#daily-chart .download')"))
         self.assertEqual(self.page.locator('#daily-chart .selection').count(), 1)
+
+    def test_pointer_inspection_on_phone(self):
+        self.page.set_viewport_size({'width': 320, 'height': 844})
+        self.load()
+        dates = self.page.locator('#inspect-date option').all_text_contents()
+        for day in dates:
+            self.page.locator('#inspect-date').select_option(day)
+            position = float(self.page.locator('#daily-chart .selection').get_attribute('x1'))
+            self.page.locator('#inspect-date').select_option(dates[-1])
+            self.page.locator('#daily-chart').scroll_into_view_if_needed()
+            point = self.page.evaluate("""position => {
+                const svg    = document.getElementById('daily-chart');
+                const point  = new DOMPoint(position, 124).matrixTransform(svg.getScreenCTM());
+                return {x: point.x, y: point.y};
+            }""", position)
+            self.page.mouse.move(point['x'], point['y'])
+            self.assertEqual(self.page.locator('#inspect-date').input_value(), day)
+        font_size = self.page.evaluate("""() => {
+            const svg = document.getElementById('daily-chart');
+            return parseFloat(getComputedStyle(svg.querySelector('text')).fontSize) * svg.getScreenCTM().a;
+        }""")
+        self.assertGreaterEqual(font_size, 14)
+
+    def test_daily_plot_has_correct_stacked_series(self):
+        previous = {'date': '2026-10-28', 'upload': 10, 'download': 100, 'totalUsed': 110, 'usedPercent': 11}
+        latest   = {'date': '2026-10-29', 'upload': 15, 'download': 125, 'totalUsed': 140, 'usedPercent': 14}
+        self.load(data=[previous, latest], quota=1000, discard=True)
+        for fraction, series in [(.5, 'download'), (.11, 'upload')]:
+            actual = self.page.evaluate("""fraction => {
+                const svg    = document.getElementById('daily-chart');
+                const marker = svg.querySelector('.selection');
+                const point  = new DOMPoint(Number(marker.getAttribute('x1')) - 3, svg.viewBox.baseVal.height * fraction).matrixTransform(svg.getScreenCTM());
+                return document.elementFromPoint(point.x, point.y).getAttribute('class');
+            }""", fraction)
+            self.assertEqual(actual, series)
+        self.assertEqual(self.page.locator('#inspect-values').inner_text(), '下载 25.0 GB · 上传 5.0 GB · 合计 30.0 GB')
 
     def test_theme_and_storage_failure(self):
         self.load()
@@ -99,6 +156,14 @@ class BrowserChecks(unittest.TestCase):
         self.page.locator('#theme-toggle').click()
         self.assertEqual(self.page.locator('html').get_attribute('data-theme'), 'dark')
         self.assertEqual(self.page.locator('#inspect-date option').count(), 14)
+
+    def test_dark_system_theme_with_blocked_storage(self):
+        self.page.emulate_media(color_scheme='dark')
+        self.page.add_init_script("Object.defineProperty(window, 'localStorage', {get() {throw new Error('storage blocked')}})")
+        self.load()
+        self.assertEqual(self.page.locator('html').get_attribute('data-theme'), 'dark')
+        self.page.locator('#theme-toggle').click()
+        self.assertEqual(self.page.locator('html').get_attribute('data-theme'), 'light')
 
     def test_theme_persistence_over_http(self):
         self.load()
@@ -120,7 +185,7 @@ class BrowserChecks(unittest.TestCase):
         self.load()
         for width in [320, 390, 700, 768, 960, 1440, 1920]:
             self.page.set_viewport_size({'width': width, 'height': 1000})
-            self.page.wait_for_function("document.querySelector('#daily-chart').getAttribute('viewBox').split(' ')[2] == Math.max(280, document.querySelector('#daily-chart').clientWidth)")
+            self.page.wait_for_function("document.querySelector('#daily-chart').getAttribute('viewBox').split(' ')[2] == document.querySelector('#daily-chart').clientWidth")
             self.assertFalse(self.page.evaluate('document.documentElement.scrollWidth > innerWidth'), f'overflow at {width}px')
             for button in self.page.locator('button:visible').all():
                 bounds = button.bounding_box()
@@ -133,15 +198,48 @@ class BrowserChecks(unittest.TestCase):
         self.page.locator('#theme-toggle').click()
         self.page.screenshot(path=str(self.artifacts / 'mobile-dark.png'), full_page=True)
 
+    def test_theme_contrast_and_chart_separators(self):
+        def luminance(color):
+            channels = [int(color[index:index + 2], 16) / 255 for index in (1, 3, 5)]
+            linear   = [value / 12.92 if value <= .04045 else ((value + .055) / 1.055) ** 2.4 for value in channels]
+            return sum(value * weight for value, weight in zip(linear, (.2126, .7152, .0722)))
+
+        self.load()
+        for theme in ['light', 'dark']:
+            if theme == 'dark':
+                self.page.locator('#theme-toggle').click()
+            colors = self.page.evaluate("""() => {
+                const styles = getComputedStyle(document.documentElement);
+                return Object.fromEntries(['text', 'muted', 'panel', 'surface', 'accent', 'accent-soft', 'upload', 'download', 'ink-text', 'meter-track'].map(name => [name, styles.getPropertyValue('--' + name).trim()]));
+            }""")
+            pairs = [('text', 'panel', 4.5), ('muted', 'surface', 4.5), ('accent', 'accent-soft', 4.5), ('upload', 'panel', 3), ('download', 'panel', 3), ('upload', 'surface', 3), ('download', 'surface', 3), ('ink-text', 'meter-track', 3)]
+            for foreground, background, minimum in pairs:
+                values   = sorted([luminance(colors[foreground]), luminance(colors[background])])
+                contrast = (values[1] + .05) / (values[0] + .05)
+                with self.subTest(theme=theme, foreground=foreground, background=background):
+                    self.assertGreaterEqual(contrast, minimum)
+            stroke = self.page.locator('#daily-chart .download').first.evaluate("node => ({color: getComputedStyle(node).stroke, width: parseFloat(getComputedStyle(node).strokeWidth)})")
+            self.assertNotEqual(stroke['color'], 'none')
+            self.assertGreaterEqual(stroke['width'], 1)
+            download = float(self.page.locator('#ratio-download').get_attribute('stroke-dasharray').split()[0])
+            upload   = float(self.page.locator('#ratio-upload').get_attribute('stroke-dasharray').split()[0])
+            self.assertLess(download + upload, 100)
+
     def test_table_pagination_search_and_keyboard(self):
         self.load()
         self.page.locator('#records summary').focus()
+        outline = self.page.locator('#records summary').evaluate("node => ({style: getComputedStyle(node).outlineStyle, offset: parseFloat(getComputedStyle(node).outlineOffset)})")
+        self.assertEqual(outline['style'], 'solid')
+        self.assertLess(outline['offset'], 0)
+        self.page.locator('#records summary').screenshot(path=str(self.artifacts / 'records-focus.png'))
         self.page.locator('#records summary').press('Enter')
         self.assertTrue(self.page.locator('#records').evaluate('node => node.open'))
         self.assertEqual(self.page.locator('#data-table-body tr').count(), 20)
-        self.assertEqual(self.page.locator('#data-table-body td').first.inner_text(), '2026-10-29')
+        self.assertEqual(self.page.locator('#data-table-body tr').first.locator('td').all_text_contents(), ['2026-10-29', '49.5', '1,000.1', '1,049.6', '43.7%'])
         self.page.locator('#next-page').click()
         self.assertIn('21–40', self.page.locator('#page-description').inner_text())
+        row = self.data[-21]
+        self.assertEqual(self.page.locator('#data-table-body tr').first.locator('td').all_text_contents(), [row['date'], f"{row['upload']:,.1f}", f"{row['download']:,.1f}", f"{row['totalUsed']:,.1f}", f"{row['usedPercent']:,.1f}%"])
         self.page.locator('#next-page').click()
         self.assertEqual(self.page.locator('#data-table-body tr').count(), 5)
         self.assertTrue(self.page.locator('#next-page').is_disabled())
@@ -155,7 +253,7 @@ class BrowserChecks(unittest.TestCase):
     def test_discard_baseline_and_single_record(self):
         self.load(discard=True)
         self.page.locator('[data-range="all"]').click()
-        self.assertEqual(self.page.locator('#daily-chart rect').count(), 88)
+        self.assertEqual(self.page.locator('#daily-average').inner_text(), '13.5 GB')
         self.assertEqual(self.page.locator('#inspect-date option').count(), 45)
         self.assertEqual(self.page.locator('#ratio-total').inner_text(), '1,049.6')
         self.page.locator('#inspect-date').select_option('2026-09-15')
@@ -165,8 +263,43 @@ class BrowserChecks(unittest.TestCase):
         self.assertEqual(self.page.locator('#remaining-days').inner_text(), '未知')
         self.assertEqual(self.page.locator('#daily-average').inner_text(), '0.0 GB')
         self.load(data=self.data[:1])
-        self.assertEqual(self.page.locator('#daily-chart rect').count(), 2)
+        self.assertTrue(self.page.locator('#daily-chart .download').first.is_visible())
         self.assertEqual(self.page.locator('#daily-average').inner_text(), '453.6 GB')
+
+    def test_forecast_rounding_preserves_whole_and_fractional_days(self):
+        previous = {'date': '2026-10-28', 'upload': 1, 'download': 100, 'totalUsed': 101, 'usedPercent': 10.1}
+        latest   = {'date': '2026-10-29', 'upload': 1, 'download': 101, 'totalUsed': 102, 'usedPercent': 10.2}
+        self.load(data=[previous, latest], quota=1000)
+        self.assertEqual(self.page.locator('#remaining-days').inner_text(), '898')
+        self.load(data=[previous, dict(latest, download=102, totalUsed=103, usedPercent=10.3)], quota=1000)
+        self.assertEqual(self.page.locator('#remaining-days').inner_text(), '449')
+
+    def test_extreme_finite_values_have_safe_chart_output(self):
+        row = {'date': '2026-10-29', 'upload': 1e308, 'download': 1e308, 'totalUsed': 1e308, 'usedPercent': 50}
+        self.load(data=[row], quota=1e308)
+        self.assertEqual(self.page.locator('#ratio-total').inner_text(), '超出范围')
+        self.assertIn('50.0%', self.page.locator('#download-ratio').inner_text())
+        self.assertIn('50.0%', self.page.locator('#upload-ratio').inner_text())
+        self.assertIn('数值超出可显示范围', self.page.locator('#daily-chart').text_content())
+        rows = [dict(row, date=f'2026-10-{day}', upload=4e307 if day % 2 else 1, download=4e307 if day % 2 else 1) for day in range(25, 30)]
+        self.load(data=rows, quota=1e308)
+        self.assertEqual(self.page.locator('#ratio-total').inner_text(), '超出范围')
+        self.assertIn('50.0%', self.page.locator('#download-ratio').inner_text())
+        self.assertNotRegex(self.page.locator('body').inner_text(), r'∞|NaN|Infinity')
+        for svg in self.page.locator('svg').all():
+            self.assertNotRegex(svg.inner_html(), r'NaN|Infinity')
+
+    def test_long_history_keeps_dom_bounded_and_dates_inspectable(self):
+        rows = [{'date': (date(2000, 1, 1) + timedelta(days=index)).isoformat(), 'upload': index + 1, 'download': (index + 1) * 5, 'totalUsed': (index + 1) * 6, 'usedPercent': (index + 1) / 1000 * 80} for index in range(1000)]
+        self.load(data=rows, quota=10000)
+        self.page.locator('[data-range="all"]').click()
+        self.assertEqual(self.page.locator('#inspect-date option').count(), 1000)
+        self.assertLess(self.page.locator('svg *').count(), 100)
+        self.page.locator('#inspect-date').select_option(rows[0]['date'])
+        self.assertEqual(self.page.locator('#inspect-values').inner_text(), '下载 5.0 GB · 上传 1.0 GB · 合计 6.0 GB')
+        self.page.locator('#inspect-date').select_option(rows[-1]['date'])
+        self.assertIn('累计已用 6,000.0 GB', self.page.locator('#total-summary').inner_text())
+        self.assertEqual(self.page.locator('#ratio-total').inner_text(), '6,000.0')
 
     def test_empty_and_zero_data(self):
         self.load(data=[])
@@ -186,6 +319,8 @@ class BrowserChecks(unittest.TestCase):
         self.assertEqual(self.page.locator('#inspect-date option').count(), 2)
         self.assertEqual(self.page.locator('#total-used').inner_text(), '1,050.6')
         self.assertEqual(self.page.locator('#latest-interval').inner_text(), '过去 4 天的记录增量')
+        self.assertEqual(self.page.locator('#daily-average').inner_text(), '13.6 GB')
+        self.assertEqual(self.page.locator('#remaining-days').inner_text(), '100')
         self.page.locator('#records summary').click()
         self.assertEqual(self.page.locator('#data-table-body tr').count(), 4)
 

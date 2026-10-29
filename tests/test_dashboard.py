@@ -1,4 +1,5 @@
 import csv
+import re
 import subprocess
 import sys
 import tempfile
@@ -59,6 +60,19 @@ class DashboardTests(unittest.TestCase):
             with self.assertRaises((KeyError, ValueError)):
                 process_csv(path)
 
+    def test_ambiguous_or_incomplete_headers_fail(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'bad.csv'
+            inputs = [
+                'UTC8_Date\n',
+                '',
+                'UTC8_Date,Accumulated_Upload_GB,Accumulated_Download_GB,Total_GB,Total_Used_GB,Used_Percent,Total_Used_GB\n2026-10-29,10,90,1000,100,10,999\n',
+            ]
+            for text in inputs:
+                path.write_text(text)
+                with self.subTest(text=text), self.assertRaisesRegex(ValueError, 'exactly once'):
+                    process_csv(path)
+
     def test_bad_number_fails(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / 'bad.csv'
@@ -98,6 +112,15 @@ class DashboardTests(unittest.TestCase):
                 self.assertIn(label, html)
             self.assertNotIn('{% ', html)
             self.assertNotIn('{{ ', html)
+
+    def test_fallback_sorts_records_chronologically(self):
+        data, quota = process_csv(FIXTURE)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'dashboard.html'
+            generate_html(path, list(reversed(data)), quota, False)
+            body  = path.read_text().split('<tbody id="data-table-body">')[1].split('</tbody>')[0]
+            dates = re.findall(r'<td>(\d{4}-\d{2}-\d{2})</td>', body)
+            self.assertEqual(dates, [row['date'] for row in reversed(data[-20:])])
 
     def test_cli_and_discard_flag(self):
         with tempfile.TemporaryDirectory() as directory:

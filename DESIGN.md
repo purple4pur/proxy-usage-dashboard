@@ -13,9 +13,11 @@ Keep these interfaces compatible:
 - Entries use `date`, `upload`, `download`, `totalUsed`, and `usedPercent`.
 
 `process_csv` preserves input order. It uses the first row's total quota.
-An empty CSV with headers returns `([], None)`.
+An empty CSV with all required headers returns `([], None)`.
 Dates must use `YYYY-MM-DD`. Numeric inputs must be finite and nonnegative.
 Values above the quota remain valid.
+Derived values above the numeric range show `超出范围`.
+Ratios remain available through normalized arithmetic.
 
 ## Information and interaction
 

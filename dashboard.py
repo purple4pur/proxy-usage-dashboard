@@ -18,7 +18,11 @@ def process_csv(csv_file):
     }
 
     with open(csv_file, 'r', encoding='utf-8-sig', newline='') as stream:
-        reader = csv.DictReader(stream)
+        reader   = csv.DictReader(stream)
+        required = ['UTC8_Date', 'Total_GB', *fields.values()]
+        headers  = reader.fieldnames or []
+        if any(headers.count(field) != 1 for field in required):
+            raise ValueError('CSV must contain each required column exactly once: ' + ', '.join(required))
         for row in reader:
             day = row['UTC8_Date']
             if date.fromisoformat(day).isoformat() != day:
