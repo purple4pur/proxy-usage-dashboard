@@ -28,6 +28,8 @@ Add remaining quota, latest increment, date inspection, search, and pagination.
 
 One range control updates all four charts. The default range is 14 calendar days.
 The 7, 14, and 30 day ranges end at the latest CSV date.
+The percentage Y-axis uses the selected minimum rounded down and maximum rounded up to whole percentages.
+Flat whole-number percentages receive padding to keep the chart range positive.
 The summary cards always use the latest snapshot.
 The table contains all raw records, independent of the chart range.
 Show 20 table records per page, newest first. Search matches date text.

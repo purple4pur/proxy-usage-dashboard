@@ -6,6 +6,7 @@ from datetime import date, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from math import ceil, floor
 import tempfile
 import unittest
 from pathlib import Path
@@ -81,9 +82,15 @@ class BrowserChecks(unittest.TestCase):
                 ticks  = svg.locator('text[text-anchor="end"]').all_text_contents()
                 grid   = svg.locator('.grid-line').evaluate_all("nodes => nodes.map(node => Number(node.getAttribute('y1')))")
                 self.assertEqual(len(points), count)
+                minimum = float(ticks[0].replace(',', ''))
                 maximum = float(ticks[-1].replace(',', ''))
+                if chart == 'percent-chart':
+                    self.assertEqual(minimum, floor(min(row[field] for row in self.data[-count:])))
+                    self.assertEqual(maximum, ceil(max(row[field] for row in self.data[-count:])))
+                else:
+                    self.assertEqual(minimum, 0)
                 for (_, plotted_y), row in zip(points, self.data[-count:]):
-                    expected_y = grid[0] + row[field] / maximum * (grid[-1] - grid[0])
+                    expected_y = grid[0] + (row[field] - minimum) / (maximum - minimum) * (grid[-1] - grid[0])
                     self.assertAlmostEqual(plotted_y, expected_y, places=5)
             previous = self.data[-count - 1] if count < len(self.data) else {'upload': 0, 'download': 0}
             upload   = Decimal(str(self.data[-1]['upload'])) - Decimal(str(previous['upload']))
@@ -98,6 +105,32 @@ class BrowserChecks(unittest.TestCase):
             self.assertIn('43.7%', self.page.locator('#percent-summary').inner_text())
         self.page.locator('[data-range="all"]').click()
         self.assertEqual(self.page.locator('#ratio-total').inner_text(), '1,049.6')
+
+    def test_percent_axis_handles_flat_and_extreme_ranges(self):
+        row   = self.data[-1]
+        cases = [([0], (0, 1)), ([50], (49, 51)), ([50, 50], (49, 51)), ([43.7, 43.7], (43, 44)), ([1e308], None), ([sys.float_info.max], None), ([1e308, sys.float_info.max], None)]
+        for values, bounds in cases:
+            with self.subTest(values=values):
+                rows = [dict(row, date=f'2026-10-{28 + index}', usedPercent=value) for index, value in enumerate(values)]
+                self.load(data=rows)
+                svg   = self.page.locator('#percent-chart')
+                ticks = [float(tick.replace(',', '')) for tick in svg.locator('text[text-anchor="end"]').all_text_contents()]
+                if bounds is not None:
+                    self.assertEqual((ticks[0], ticks[-1]), bounds)
+                    self.assertGreater(ticks[-1], ticks[0])
+                grid = svg.locator('.grid-line').evaluate_all("nodes => nodes.map(node => Number(node.getAttribute('y1')))")
+                self.assertEqual((grid[0], grid[-1]), (212, 16))
+                self.assertNotRegex(svg.inner_html(), r'NaN|Infinity')
+                path   = svg.locator('.line-percent').get_attribute('d')
+                points = [float(y) for _, y in re.findall(r'[ML]([\d.e+\-]+),([\d.e+\-]+)', path)]
+                self.assertEqual(len(points), len(values))
+                for plotted_y in points:
+                    self.assertGreaterEqual(plotted_y, 16)
+                    self.assertLessEqual(plotted_y, 212)
+                if len(values) == 1:
+                    self.assertTrue(svg.locator('circle').is_visible())
+                if values == [50, 50]:
+                    self.assertEqual(points, [114, 114])
 
     def test_keyboard_date_inspection_preserves_chart_nodes(self):
         self.load()
