@@ -7,3 +7,8 @@ requires-python = ">=3.14"
 dependencies = [
     "jinja2>=3.1.6",
 ]
+
+[dependency-groups]
+browser = [
+    "playwright>=1.55,<2",
+]

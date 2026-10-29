@@ -1,1300 +1,559 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>流量使用统计</title>
-    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
-    <script defer src="https://cloud.umami.is/script.js" data-website-id="b7a368ac-7d0a-48fc-aab9-7abc528db384"></script>
-    <script src="https://app.rybbit.io/api/script.js" data-site-id="e0fc50ec8fa2" defer></script>
+    <meta name="color-scheme" content="light dark">
+    <title>流量使用统计 · Traffic Atlas</title>
+    <script>
+        try {
+            const saved = localStorage.getItem('theme');
+            document.documentElement.dataset.theme = saved === 'light' || saved === 'dark' ? saved : (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        } catch (_) {}
+    </script>
     <style>
         :root {
-            --bg: #eceff4;
-            --panel: #ffffff;
-            --panel-2: #f1f5f9;
-            --border: #cbd5e1;
-            --text: #0f172a;
-            --muted: #475569;
-            --accent: #0e5d57;
-            --accent-fg: #ffffff;
-            --accent-soft: rgba(14, 93, 87, 0.12);
-            --upload: #2563eb;
-            --download: #db2777;
-            --warn: #b45309;
-            --violet: #6d28d9;
-            --shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 2px 4px rgba(15, 23, 42, 0.06), 0 8px 24px rgba(15, 23, 42, 0.08);
-            --radius: 14px;
-            --radius-sm: 8px;
-            --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+            --bg: #f4f2ed;
+            --panel: #fffefa;
+            --surface: #eae7df;
+            --text: #242d32;
+            --muted: #626862;
+            --border: #d4d5cd;
+            --accent: #a4431d;
+            --accent-soft: #f7e5d8;
+            --download: #a4431d;
+            --upload: #286965;
+            --ink: #243b3b;
+            --ink-text: #fcf9f0;
+            --ink-muted: #c2d0c8;
+            --focus: #286965;
+            --shadow: 0 1px 2px rgb(36 45 50 / 4%), 0 4px 16px rgb(36 45 50 / 4%);
+            --font-body: 'Avenir Next', 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            --font-display: 'Iowan Old Style', 'Palatino Linotype', 'Songti SC', Georgia, serif;
+            --font-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
         }
-
         [data-theme="dark"] {
-            --bg: #070a10;
-            --panel: #121826;
-            --panel-2: #1c2533;
-            --border: #2e3b4d;
-            --text: #f2f6fa;
-            --muted: #a9b6c6;
-            --accent: #3ddcc5;
-            --accent-fg: #06201d;
-            --accent-soft: rgba(61, 220, 197, 0.14);
-            --upload: #60a5fa;
-            --download: #f472b6;
-            --warn: #fbbf24;
-            --violet: #a78bfa;
-            --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.4), 0 12px 32px rgba(0, 0, 0, 0.5);
+            --bg: #172322;
+            --panel: #1f302e;
+            --surface: #293e3a;
+            --text: #f3f1e9;
+            --muted: #b8c6bf;
+            --border: #4b625a;
+            --accent: #ffb38a;
+            --accent-soft: #483a30;
+            --download: #ffb38a;
+            --upload: #8ed0c5;
+            --ink: #304942;
+            --ink-text: #fcf9f0;
+            --ink-muted: #cfdbd3;
+            --focus: #8ed0c5;
+            --shadow: 0 1px 2px rgb(0 0 0 / 12%), 0 4px 16px rgb(0 0 0 / 12%);
         }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        * { box-sizing: border-box; }
+        html { scroll-padding-top: 24px; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+        body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 var(--font-body); }
+        h1, h2, h3, p { margin: 0; }
+        h1, h2, h3 { text-wrap: balance; }
+        h1 { font: 600 clamp(28px, 3vw, 40px)/1.25 var(--font-display); letter-spacing: -.04em; }
+        h2 { font-size: 20px; font-weight: 600; }
+        h3 { font-size: 16px; font-weight: 600; }
+        a { color: inherit; text-decoration: none; }
+        button, input, select { font: inherit; }
+        button, select, input { min-height: 44px; }
+        button, summary { cursor: pointer; }
+        button { min-width: 44px; color: var(--text); border: 1px solid var(--border); background: var(--panel); border-radius: 8px; padding: 8px 16px; }
+        button:active { transform: scale(.98); }
+        button:disabled { opacity: .55; cursor: default; }
+        :focus-visible { outline: 3px solid var(--focus); outline-offset: 4px; }
+        ::selection { color: var(--text); background: var(--accent-soft); }
+        .skip-link { position: fixed; top: -100px; left: 16px; padding: 12px 20px; background: var(--panel); z-index: 40; }
+        .skip-link:focus { top: 16px; }
+        .shell { max-width: 1800px; margin: auto; display: grid; grid-template-columns: 224px minmax(0, 1fr); }
+        .sidebar { position: sticky; top: 0; height: 100vh; padding: 40px 24px; border-right: 1px solid var(--border); display: flex; flex-direction: column; gap: 40px; }
+        .brand { min-height: 44px; display: flex; gap: 12px; align-items: center; }
+        .brand-mark { width: 40px; height: 40px; background: var(--ink); color: var(--ink-text); display: grid; place-items: center; border-radius: 12px 12px 12px 0; font: 24px var(--font-display); }
+        .brand-name { font: 600 20px/1.2 var(--font-display); letter-spacing: -.02em; }
+        .eyebrow { font: 14px/1.5 var(--font-mono); color: var(--muted); letter-spacing: .08em; }
+        .brand .eyebrow { margin-top: 4px; letter-spacing: 0; }
+        .nav { display: grid; gap: 8px; }
+        .nav a { display: flex; align-items: center; gap: 16px; padding: 12px; min-height: 48px; border-radius: 8px; color: var(--muted); }
+        .nav a:first-child { background: var(--accent-soft); color: var(--accent); }
+        .nav-number { font: 14px var(--font-mono); }
+        .sidebar-note { margin-top: auto; font-size: 14px; color: var(--muted); border-top: 1px solid var(--border); padding-top: 24px; }
+        .sidebar-note strong { display: block; font-weight: 500; color: var(--text); margin-bottom: 8px; }
+        main { padding: 40px 40px 24px; min-width: 0; }
+        .topbar { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding-bottom: 32px; }
+        .topbar .eyebrow { margin-bottom: 12px; }
+        .subtitle { margin-top: 12px; color: var(--muted); font-size: 14px; }
+        .theme-toggle { flex: none; display: inline-flex; align-items: center; gap: 8px; }
+        .theme-icon { font-size: 20px; line-height: 1; }
+        .overview { display: grid; grid-template-columns: 1.1fr 2fr; gap: 24px; margin-bottom: 32px; }
+        .quota-card { background: var(--ink); color: var(--ink-text); border-radius: 16px; padding: 28px; display: flex; flex-direction: column; justify-content: space-between; gap: 24px; }
+        .quota-card .eyebrow, .quota-card .muted { color: var(--ink-muted); }
+        .quota-card .big-value { font: 400 clamp(32px, 3vw, 48px)/1.2 var(--font-display); font-variant-numeric: tabular-nums; letter-spacing: -.04em; overflow-wrap: anywhere; }
+        .unit { font: 14px var(--font-mono); margin-left: 8px; letter-spacing: 0; }
+        .quota-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+        .badge { font-size: 14px; border: 1px solid currentColor; border-radius: 20px; padding: 2px 12px; white-space: nowrap; }
+        .quota-meter { appearance: none; width: 100%; height: 6px; border: 0; border-radius: 4px; overflow: hidden; background: var(--ink-muted); margin: 16px 0 12px; }
+        .quota-meter::-webkit-progress-bar { background: var(--ink-muted); }
+        .quota-meter::-webkit-progress-value { background: var(--ink-text); }
+        .quota-meter::-moz-progress-bar { background: var(--ink-text); }
+        .quota-caption { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; font-size: 14px; }
+        .metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+        .metric { padding: 24px; background: var(--panel); border-radius: 12px; box-shadow: var(--shadow); min-width: 0; }
+        .metric-label { font-size: 14px; color: var(--muted); margin-bottom: 8px; }
+        .metric-value { font: 500 clamp(24px, 2.3vw, 32px)/1.25 var(--font-mono); letter-spacing: -.05em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+        .metric-note { font-size: 14px; color: var(--muted); margin-top: 8px; }
+        .toolbar { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
+        .toolbar-title { display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; }
+        .toolbar-title p { font-size: 14px; color: var(--muted); }
+        .range-group { display: flex; gap: 8px; }
+        .range-btn { min-width: 52px; font-size: 14px; padding: 8px 12px; background: transparent; border-color: transparent; }
+        .range-btn[aria-pressed="true"] { background: var(--ink); color: var(--ink-text); border-color: var(--ink); }
+        .panel { min-width: 0; padding: 24px; border-radius: 16px; background: var(--panel); box-shadow: var(--shadow); }
+        .panel-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
+        .panel-header p { color: var(--muted); font-size: 14px; margin-top: 4px; }
+        .legend { display: flex; flex-wrap: wrap; gap: 16px; color: var(--muted); font-size: 14px; align-items: center; }
+        .legend span { display: inline-flex; align-items: center; gap: 8px; }
+        .swatch { width: 12px; height: 12px; border-radius: 3px; background: var(--download); display: inline-block; }
+        .swatch.upload { background: var(--upload); }
+        .swatch.average { height: 0; width: 16px; border-top: 2px dashed var(--muted); border-radius: 0; background: transparent; }
+        .chart { width: 100%; height: 248px; display: block; overflow: visible; }
+        .chart text { font: 14px var(--font-mono); fill: var(--muted); }
+        .chart .grid-line { stroke: var(--border); stroke-width: 1; }
+        .chart .download { fill: var(--download); }
+        .chart .upload { fill: var(--upload); }
+        .chart .line-used { fill: none; stroke: var(--download); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+        .chart .line-percent { fill: none; stroke: var(--upload); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+        .chart .reference { fill: none; stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 5 5; }
+        .chart .area { fill: var(--accent-soft); }
+        .chart .selection { stroke: var(--text); stroke-width: 1; stroke-dasharray: 3 3; }
+        .activity-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); gap: 24px; }
+        .chart-foot { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding-top: 16px; border-top: 1px solid var(--border); font-size: 14px; color: var(--muted); }
+        .chart-foot strong { font: 500 16px var(--font-mono); color: var(--text); }
+        .ratio-wrap { display: grid; place-items: center; position: relative; max-width: 208px; margin: 0 auto 20px; }
+        .ratio-chart { width: 100%; height: auto; }
+        .ratio-track { fill: none; stroke: var(--surface); stroke-width: 14; }
+        .ratio-download { fill: none; stroke: var(--download); stroke-width: 14; }
+        .ratio-upload { fill: none; stroke: var(--upload); stroke-width: 14; }
+        .ratio-center { position: absolute; text-align: center; pointer-events: none; }
+        .ratio-center strong { display: block; font: 600 24px var(--font-mono); letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
+        .ratio-center span { color: var(--muted); font-size: 14px; }
+        .ratio-row { display: flex; gap: 12px; justify-content: space-between; padding: 12px 0; border-top: 1px solid var(--border); font-size: 14px; }
+        .ratio-row strong { font-weight: 500; font-variant-numeric: tabular-nums; }
+        .ratio-row .legend { gap: 8px; }
+        .inspect { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; margin: 16px 0 32px; padding: 16px 24px; border: 1px solid var(--border); border-radius: 12px; font-size: 14px; }
+        .inspect label { color: var(--muted); }
+        select, input { padding: 8px 12px; background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 8px; max-width: 100%; }
+        .inspect output { font-variant-numeric: tabular-nums; }
+        .inspect-hint { margin-left: auto; color: var(--muted); }
+        .trend-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; margin-bottom: 32px; }
+        .section-heading { margin-bottom: 20px; display: flex; justify-content: space-between; gap: 16px; align-items: baseline; }
+        .section-heading p { font-size: 14px; color: var(--muted); }
+        .records { padding: 0; overflow: hidden; }
+        summary { min-height: 64px; padding: 20px 24px; font-size: 20px; font-weight: 600; }
+        summary::marker { color: var(--accent); }
+        .record-tools { padding: 0 24px 20px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; font-size: 14px; }
+        .record-tools label { color: var(--muted); }
+        .record-count { margin-left: auto; color: var(--muted); }
+        .table-scroll { overflow: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+        caption { text-align: left; color: var(--muted); padding: 0 24px 16px; }
+        th, td { padding: 14px 24px; text-align: right; border-top: 1px solid var(--border); }
+        th { color: var(--muted); font-weight: 500; background: var(--surface); }
+        th:first-child, td:first-child { text-align: left; }
+        td { font-family: var(--font-mono); }
+        .pagination { display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: 12px; padding: 16px 24px; border-top: 1px solid var(--border); font-size: 14px; }
+        .pagination span { margin-right: auto; color: var(--muted); }
+        footer { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 32px 0 8px; color: var(--muted); font-size: 14px; }
+        footer a { display: inline-flex; align-items: center; min-height: 44px; text-decoration: underline; text-underline-offset: 4px; }
+        .notice { padding: 20px 24px; background: var(--accent-soft); border-radius: 12px; margin-bottom: 24px; }
+        [hidden] { display: none !important; }
+        @media (hover: hover) and (pointer: fine) {
+            button:not(:disabled):hover, .nav a:hover { border-color: var(--accent); color: var(--accent); }
+            .range-btn[aria-pressed="true"]:hover { color: var(--ink-text); }
+            tbody tr:hover { background: var(--accent-soft); }
         }
-
-        html {
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
-            text-rendering: optimizeLegibility;
+        @media (min-width: 1600px) { main { padding-right: 64px; padding-left: 64px; } }
+        @media (max-width: 1180px) {
+            .shell { grid-template-columns: 184px minmax(0, 1fr); }
+            .sidebar { padding: 32px 16px; }
+            main { padding: 32px 24px 24px; }
+            .overview { grid-template-columns: 1fr 1.6fr; gap: 16px; }
+            .quota-card { padding: 24px; }
+            .metric { padding: 20px; }
+            .activity-grid { grid-template-columns: minmax(0, 1.6fr) minmax(260px, 1fr); gap: 16px; }
         }
-
-        body {
-            font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
-            background-color: var(--bg);
-            color: var(--text);
-            line-height: 1.6;
-            padding: 24px 20px 48px;
-            transition: background-color 0.2s ease, color 0.2s ease;
+        @media (max-width: 960px) {
+            .shell { display: block; }
+            .sidebar { position: static; height: auto; padding: 16px 24px; flex-direction: row; align-items: center; justify-content: space-between; border-right: 0; border-bottom: 1px solid var(--border); gap: 16px; }
+            .nav { display: flex; gap: 8px; }
+            .nav a { padding: 8px 12px; }
+            .nav-number, .sidebar-note { display: none; }
         }
-
-        /* 细腻噪点纹理，避免纯色背景的生硬感 */
-        body::before {
-            content: "";
-            position: fixed;
-            inset: 0;
-            z-index: 0;
-            pointer-events: none;
-            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/></svg>");
+        @media (max-width: 700px) {
+            main { padding: 24px 16px 16px; }
+            .sidebar { padding: 16px; }
+            .brand-name { font-size: 18px; }
+            .brand .eyebrow { font-size: 14px; }
+            .nav { display: none; }
+            .topbar { gap: 12px; padding-bottom: 24px; }
+            .theme-toggle { padding: 8px 12px; }
+            .theme-label { display: none; }
+            .overview { grid-template-columns: 1fr; gap: 16px; margin-bottom: 24px; }
+            .quota-card { gap: 20px; }
+            .quota-card .big-value { font-size: 40px; }
+            .metric { padding: 20px 16px; }
+            .metric-value { font-size: 24px; }
+            .metric-value .unit { margin-left: 4px; }
+            .activity-grid, .trend-grid { grid-template-columns: 1fr; gap: 16px; }
+            .panel { padding: 20px 16px; }
+            .panel-header { gap: 12px; }
+            .toolbar { gap: 12px; margin-bottom: 16px; }
+            .range-group { width: 100%; justify-content: space-between; }
+            .range-btn { flex: 1; }
+            .ratio-panel { display: grid; grid-template-columns: 144px minmax(0, 1fr); gap: 16px; align-items: center; }
+            .ratio-panel .panel-header { grid-column: 1 / -1; margin-bottom: 0; }
+            .ratio-wrap { margin: 0; width: 144px; }
+            .ratio-center strong { font-size: 20px; }
+            .ratio-row { display: grid; gap: 4px; }
+            .inspect { padding: 12px 16px; gap: 12px; margin-bottom: 24px; }
+            .inspect output { width: 100%; }
+            .inspect-hint { display: none; }
+            .section-heading { flex-wrap: wrap; gap: 4px; }
+            .records { padding: 0; }
+            summary { padding: 20px 16px; }
+            .record-tools { padding: 0 16px 16px; }
+            .record-count { width: 100%; margin-left: 0; }
+            th, td { padding: 12px 16px; }
+            caption { padding-left: 16px; }
+            .pagination { padding: 16px; }
+            footer { gap: 0; padding-top: 24px; }
         }
-
-        .container {
-            position: relative;
-            z-index: 1;
-            max-width: 1400px;
-            margin: 0 auto;
-        }
-
-        h1, h2, h3 {
-            text-wrap: balance;
-        }
-
-        header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            gap: 16px;
-            padding: 8px 4px 28px;
-        }
-
-        .kicker {
-            font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', Consolas, monospace;
-            font-size: 0.75rem;
-            letter-spacing: 0.12em;
-            text-transform: uppercase;
-            color: var(--accent);
-            margin-bottom: 6px;
-        }
-
-        h1 {
-            color: var(--text);
-            font-size: 1.75rem;
-            font-weight: 700;
-            letter-spacing: -0.01em;
-            margin-bottom: 8px;
-        }
-
-        .subtitle {
-            color: var(--muted);
-            font-size: 0.9rem;
-        }
-
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-            gap: 16px;
-            margin-bottom: 24px;
-        }
-
-        .stat-card {
-            background: var(--panel);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 18px 20px;
-            box-shadow: var(--shadow);
-            display: flex;
-            align-items: center;
-            gap: 16px;
-        }
-
-        .stat-icon {
-            flex: none;
-            width: 48px;
-            height: 48px;
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.3rem;
-            background: color-mix(in srgb, currentColor 12%, transparent);
-        }
-
-        .stat-value {
-            font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', Consolas, monospace;
-            font-size: 1.5rem;
-            font-weight: 600;
-            letter-spacing: -0.02em;
-            line-height: 1.2;
-            font-variant-numeric: tabular-nums;
-        }
-
-        .stat-label {
-            color: var(--muted);
-            font-size: 0.85rem;
-            margin-top: 2px;
-        }
-
-        .charts-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(480px, 1fr));
-            gap: 16px;
-            margin-bottom: 24px;
-        }
-
-        .chart-container {
-            background: var(--panel);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 20px;
-            box-shadow: var(--shadow);
-            display: flex;
-            flex-direction: column;
-            transition: background-color 0.2s ease, border-color 0.2s ease;
-        }
-
-        .chart-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 12px;
-            margin-bottom: 16px;
-        }
-
-        .chart-title {
-            font-size: 1.05rem;
-            font-weight: 600;
-            color: var(--text);
-        }
-
-        .chart-actions {
-            display: flex;
-            gap: 6px;
-        }
-
-        .chart-btn {
-            font-family: inherit;
-            min-height: 44px;
-            padding: 8px 14px;
-            background: var(--panel-2);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            color: var(--muted);
-            cursor: pointer;
-            font-size: 0.85rem;
-            transition: background-color 0.1s ease, color 0.1s ease, border-color 0.1s ease, transform 0.1s ease;
-        }
-
-        .chart-btn:hover {
-            color: var(--text);
-            border-color: var(--accent);
-        }
-
-        .chart-btn:active {
-            transform: scale(0.97);
-        }
-
-        .chart-btn.active {
-            background: var(--accent);
-            border-color: var(--accent);
-            color: var(--accent-fg);
-        }
-
-        .chart-wrapper {
-            position: relative;
-            width: 100%;
-            flex-grow: 1;
-            min-height: 300px;
-        }
-
-        .data-table {
-            background: var(--panel);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            box-shadow: var(--shadow);
-            overflow-x: auto;
-        }
-
-        .data-table summary {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 14px 20px;
-            font-size: 1.05rem;
-            font-weight: 600;
-            cursor: pointer;
-            list-style: none;
-            user-select: none;
-        }
-
-        .data-table summary::-webkit-details-marker {
-            display: none;
-        }
-
-        .data-table summary::before {
-            content: "▸";
-            color: var(--accent);
-            transition: transform 0.15s ease;
-        }
-
-        .data-table[open] summary::before {
-            transform: rotate(90deg);
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        th, td {
-            padding: 10px 20px;
-            text-align: right;
-            border-top: 1px solid var(--border);
-            font-variant-numeric: tabular-nums;
-            white-space: nowrap;
-        }
-
-        th:first-child, td:first-child {
-            text-align: left;
-        }
-
-        th {
-            background-color: var(--panel-2);
-            color: var(--muted);
-            font-weight: 600;
-            font-size: 0.8rem;
-        }
-
-        tbody tr:hover {
-            background-color: var(--accent-soft);
-        }
-
-        footer {
-            text-align: center;
-            margin-top: 32px;
-            padding: 20px 0;
-            color: var(--muted);
-            font-size: 0.8rem;
-        }
-
-        footer a {
-            color: var(--muted);
-        }
-
-        footer a:hover {
-            color: var(--accent);
-        }
-
-        /* 主题切换按钮 */
-        .theme-toggle {
-            flex: none;
-            width: 44px;
-            height: 44px;
-            border-radius: 12px;
-            background: var(--panel);
-            border: 1px solid var(--border);
-            color: var(--text);
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.15rem;
-            transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
-        }
-
-        .theme-toggle:hover {
-            border-color: var(--accent);
-            color: var(--accent);
-        }
-
-        .theme-toggle:active {
-            transform: scale(0.96);
-        }
-
-        :focus-visible {
-            outline: 2px solid var(--accent);
-            outline-offset: 2px;
-        }
-
-        .stat-card, .chart-container {
-            animation: rise 0.32s var(--ease-out) both;
-        }
-
-        .stats-grid > :nth-child(2), .charts-grid > :nth-child(2) { animation-delay: 60ms; }
-        .stats-grid > :nth-child(3), .charts-grid > :nth-child(3) { animation-delay: 120ms; }
-        .stats-grid > :nth-child(4), .charts-grid > :nth-child(4) { animation-delay: 180ms; }
-
-        @keyframes rise {
-            from { opacity: 0; transform: translateY(6px); }
-            to { opacity: 1; transform: none; }
-        }
-
-        @media (max-width: 1030px) {
-            .stats-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-        }
-
-        @media (max-width: 768px) {
-            .charts-grid {
-                grid-template-columns: 1fr;
-            }
-
-            h1 {
-                font-size: 1.5rem;
-            }
-        }
-
-        @media (max-width: 480px) {
-            body {
-                padding: 12px 10px 32px;
-            }
-
-            .stat-card {
-                padding: 14px 16px;
-            }
-
-            .stat-value {
-                font-size: 1.3rem;
-            }
-
-            .chart-container {
-                padding: 14px;
-            }
-
-            .chart-btn {
-                min-height: 40px;
-                padding: 6px 10px;
-                font-size: 0.8rem;
-            }
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-            *, *::before, *::after {
-                animation-duration: 0.01ms !important;
-                animation-iteration-count: 1 !important;
-                transition-duration: 0.01ms !important;
-            }
-        }
+        @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; } }
+        @media print { .sidebar, .theme-toggle, .range-group, .record-tools, .pagination { display: none; } .shell { display: block; } main { padding: 0; } .panel, .quota-card, .metric { break-inside: avoid; } }
     </style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <div>
-                <p class="kicker">Proxy Traffic Monitor</p>
-                <h1>流量使用统计</h1>
-                <p class="subtitle" id="date-range">YYYY-MM-DD 至 YYYY-MM-DD 流量使用分析</p>
-                <p class="subtitle">数据更新时间：{{ current_time }}</p>
-            </div>
-            <button class="theme-toggle" id="theme-toggle" type="button" title="切换深色模式" aria-label="切换深色模式">
-                <i class="fa fa-moon-o" aria-hidden="true"></i>
-            </button>
-        </header>
-
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-icon" style="color: var(--accent);">
-                    <i class="fa fa-database"></i>
+    <a class="skip-link" href="#main-content">跳转到主要内容</a>
+    <div class="shell">
+        <aside class="sidebar" aria-label="站点导航">
+            <a class="brand" href="#overview" aria-label="Traffic Atlas 总览">
+                <span class="brand-mark" aria-hidden="true">a</span>
+                <span><span class="brand-name">Traffic Atlas</span><span class="eyebrow" style="display: block">代理流量观察</span></span>
+            </a>
+            <nav class="nav" aria-label="页面章节">
+                <a href="#overview"><span class="nav-number">01</span>流量总览</a>
+                <a href="#activity"><span class="nav-number">02</span>每日用量</a>
+                <a href="#trends"><span class="nav-number">03</span>趋势分析</a>
+                <a href="#records" id="records-link"><span class="nav-number">04</span>详细数据</a>
+            </nav>
+            <div class="sidebar-note"><strong>每一 GB，都有迹可循。</strong>累计用量、每日变化与剩余额度，在同一视图中呈现。<p style="margin-top: 16px">时区 UTC+8 · 单位 GB</p></div>
+        </aside>
+        <main id="main-content" tabindex="-1">
+            <header class="topbar" id="overview">
+                <div><p class="eyebrow">USAGE / OVERVIEW</p><h1>流量使用统计</h1><p class="subtitle" id="date-range">记录日期范围</p></div>
+                <button type="button" id="theme-toggle" class="theme-toggle" aria-label="切换深色模式" aria-pressed="false"><span class="theme-icon" aria-hidden="true">◐</span><span class="theme-label">深色模式</span></button>
+            </header>
+            <noscript><p class="notice">请启用 JavaScript，以查看交互图表、统计数据和全部记录。下方保留最近 20 条原始记录。</p></noscript>
+            <p class="notice" id="empty-state" hidden>暂无流量记录。请使用包含数据的 CSV 重新生成页面。</p>
+            <section class="overview" aria-label="流量总览">
+                <article class="quota-card">
+                    <div class="quota-top"><p class="eyebrow">REMAINING / 剩余流量</p><span class="badge" id="quota-status">等待数据</span></div>
+                    <div><p class="big-value"><span id="remaining-gb">—</span><span class="unit">GB</span></p><progress class="quota-meter" id="quota-meter" max="100" value="0" aria-label="已用流量占总额度的比例"></progress><div class="quota-caption"><span class="muted">总可用流量</span><span id="total-available">— GB</span></div></div>
+                    <p class="muted" style="font-size: 14px">以最新记录为准 · <span id="latest-date">—</span></p>
+                </article>
+                <div class="metrics">
+                    <article class="metric"><p class="metric-label">已用流量</p><p class="metric-value"><span id="total-used">—</span><span class="unit">GB</span></p><p class="metric-note">累计上传与下载用量</p></article>
+                    <article class="metric"><p class="metric-label">使用率</p><p class="metric-value"><span id="usage-percent">—</span><span class="unit">%</span></p><p class="metric-note">CSV 中记录的使用比例</p></article>
+                    <article class="metric"><p class="metric-label">预计剩余天数</p><p class="metric-value"><span id="remaining-days">—</span><span class="unit" id="days-unit">天</span></p><p class="metric-note">基于最近 7 个记录间隔 · 非到期日</p></article>
+                    <article class="metric"><p class="metric-label">最近一次新增用量</p><p class="metric-value"><span id="latest-increment">—</span><span class="unit">GB</span></p><p class="metric-note" id="latest-interval">相邻记录的累计差值</p></article>
                 </div>
-                <div class="stat-value" id="total-available">NULL GB</div>
-                <div class="stat-label">总可用流量</div>
-            </div>
-
-            <div class="stat-card">
-                <div class="stat-icon" style="color: var(--warn);">
-                    <i class="fa fa-line-chart"></i>
+            </section>
+            <section id="activity" aria-labelledby="activity-heading">
+                <div class="toolbar"><div class="toolbar-title"><h2 id="activity-heading">用量观察</h2><p id="range-description" role="status">最近 14 天</p></div><div class="range-group" role="group" aria-label="所有图表的日期范围"><button class="range-btn" type="button" data-range="7" aria-pressed="false">7 天</button><button class="range-btn" type="button" data-range="14" aria-pressed="true">14 天</button><button class="range-btn" type="button" data-range="30" aria-pressed="false">30 天</button><button class="range-btn" type="button" data-range="all" aria-pressed="false">全部</button></div></div>
+                <div class="activity-grid">
+                    <article class="panel"><div class="panel-header"><div><h3 id="daily-heading">每日上传下载量</h3><p id="daily-note">相邻记录间的新增用量</p></div><div class="legend"><span><i class="swatch" aria-hidden="true"></i>下载</span><span><i class="swatch upload" aria-hidden="true"></i>上传</span><span><i class="swatch average" aria-hidden="true"></i>日均</span></div></div><svg id="daily-chart" class="chart" role="img" aria-labelledby="daily-heading daily-summary"></svg><div class="chart-foot" id="daily-summary"><span>所选范围日均 <strong id="daily-average">— GB</strong></span><span>峰值 <strong id="daily-peak">— GB</strong></span></div></article>
+                    <article class="panel ratio-panel"><div class="panel-header"><div><h3 id="ratio-heading">上传下载比例</h3><p id="ratio-note">所选范围内的流量分布</p></div></div><div class="ratio-wrap"><svg id="ratio-chart" class="ratio-chart" viewBox="0 0 160 160" role="img" aria-labelledby="ratio-heading ratio-summary"><circle class="ratio-track" cx="80" cy="80" r="60"/><circle class="ratio-download" id="ratio-download" cx="80" cy="80" r="60" pathLength="100" transform="rotate(-90 80 80)"/><circle class="ratio-upload" id="ratio-upload" cx="80" cy="80" r="60" pathLength="100" transform="rotate(-90 80 80)"/></svg><div class="ratio-center"><strong id="ratio-total">—</strong><span>GB 总流量</span></div></div><div id="ratio-summary"><div class="ratio-row"><span class="legend"><i class="swatch" aria-hidden="true"></i>下载</span><strong id="download-ratio">—</strong></div><div class="ratio-row"><span class="legend"><i class="swatch upload" aria-hidden="true"></i>上传</span><strong id="upload-ratio">—</strong></div></div></article>
                 </div>
-                <div class="stat-value" id="total-used">NULL GB</div>
-                <div class="stat-label">已用流量</div>
-            </div>
-
-            <div class="stat-card">
-                <div class="stat-icon" style="color: var(--violet);">
-                    <i class="fa fa-tachometer"></i>
-                </div>
-                <div class="stat-value" id="usage-percent">NULL%</div>
-                <div class="stat-label">使用率</div>
-            </div>
-
-            <div class="stat-card">
-                <div class="stat-icon" style="color: var(--upload);">
-                    <i class="fa fa-hourglass-half"></i>
-                </div>
-                <div class="stat-value" id="remaining-days">NULL 天</div>
-                <div class="stat-label">预计剩余天数</div>
-            </div>
-        </div>
-
-        <div class="charts-grid">
-            <div class="chart-container">
-                <div class="chart-header">
-                    <h2 class="chart-title">已用流量</h2>
-                    <div class="chart-actions">
-                        <button class="chart-btn" data-chart="totalUsageChart" data-range="7">7天</button>
-                        <button class="chart-btn active" data-chart="totalUsageChart" data-range="14">14天</button>
-                        <button class="chart-btn" data-chart="totalUsageChart" data-range="30">30天</button>
-                        <button class="chart-btn" data-chart="totalUsageChart" data-range="all">全部</button>
-                    </div>
-                </div>
-                <div class="chart-wrapper">
-                    <canvas id="totalUsageChart"></canvas>
-                </div>
-            </div>
-
-            <div class="chart-container">
-                <div class="chart-header">
-                    <h2 class="chart-title">使用率</h2>
-                    <div class="chart-actions">
-                        <button class="chart-btn" data-chart="percentChart" data-range="7">7天</button>
-                        <button class="chart-btn active" data-chart="percentChart" data-range="14">14天</button>
-                        <button class="chart-btn" data-chart="percentChart" data-range="30">30天</button>
-                        <button class="chart-btn" data-chart="percentChart" data-range="all">全部</button>
-                    </div>
-                </div>
-                <div class="chart-wrapper">
-                    <canvas id="percentChart"></canvas>
-                </div>
-            </div>
-
-            <div class="chart-container">
-                <div class="chart-header">
-                    <h2 class="chart-title">每日上传下载量</h2>
-                    <div class="chart-actions">
-                        <button class="chart-btn" data-chart="dailyUsageChart" data-range="7">7天</button>
-                        <button class="chart-btn active" data-chart="dailyUsageChart" data-range="14">14天</button>
-                        <button class="chart-btn" data-chart="dailyUsageChart" data-range="30">30天</button>
-                        <button class="chart-btn" data-chart="dailyUsageChart" data-range="all">全部</button>
-                    </div>
-                </div>
-                <div class="chart-wrapper">
-                    <canvas id="dailyUsageChart"></canvas>
-                </div>
-            </div>
-
-            <div class="chart-container">
-                <div class="chart-header">
-                    <h2 class="chart-title">上传下载比例</h2>
-                    <div class="chart-actions">
-                        <button class="chart-btn" data-chart="ratioChart" data-range="7">7 天</button>
-                        <button class="chart-btn active" data-chart="ratioChart" data-range="14">14 天</button>
-                        <button class="chart-btn" data-chart="ratioChart" data-range="30">30 天</button>
-                        <button class="chart-btn" data-chart="ratioChart" data-range="all">全部</button>
-                    </div>
-                </div>
-                <div class="chart-wrapper">
-                    <canvas id="ratioChart"></canvas>
-                </div>
-            </div>
-        </div>
-
-        <details class="data-table">
-            <summary>详细数据</summary>
-            <table>
-                <thead>
-                    <tr>
-                        <th>日期</th>
-                        <th>累计上传 (GB)</th>
-                        <th>累计下载 (GB)</th>
-                        <th>总使用量 (GB)</th>
-                        <th>使用率 (%)</th>
-                    </tr>
-                </thead>
-                <tbody id="data-table-body">
-                </tbody>
-            </table>
-        </details>
-
-        <footer>
-            <p>© 2025-{{ current_time[:4] }} Purple4pur | <a href='https://github.com/purple4pur/proxy-usage-dashboard'>你们这里谁最懂 Vibe Coding</a></p>
-        </footer>
+                <div class="inspect"><label for="inspect-date">查看某日</label><select id="inspect-date" aria-describedby="inspect-values"></select><output id="inspect-values" aria-live="polite">选择日期以查看具体用量</output><span class="inspect-hint">也可移动指针查看图表</span></div>
+            </section>
+            <section id="trends" aria-labelledby="trends-heading"><div class="section-heading"><h2 id="trends-heading">趋势分析</h2><p>与上方日期范围同步</p></div><div class="trend-grid"><article class="panel"><div class="panel-header"><div><h3 id="total-heading">已用流量趋势</h3><p>累计用量与总可用流量对照 · GB</p></div><span class="legend"><i class="swatch average" aria-hidden="true"></i>总额度</span></div><svg id="total-chart" class="chart" role="img" aria-labelledby="total-heading total-summary"></svg><p class="chart-foot" id="total-summary">选择日期以查看累计用量</p></article><article class="panel"><div class="panel-header"><div><h3 id="percent-heading">使用率变化</h3><p>CSV 中记录的累计使用率 · %</p></div></div><svg id="percent-chart" class="chart" role="img" aria-labelledby="percent-heading percent-summary"></svg><p class="chart-foot" id="percent-summary">选择日期以查看使用率</p></article></div></section>
+            <details class="panel records" id="records"><summary>详细数据</summary><div class="record-tools"><label for="date-search">筛选日期</label><input id="date-search" type="search" placeholder="例如 2026-10" aria-controls="data-table-body"><span class="record-count" id="record-count" role="status"></span></div><div class="table-scroll" role="region" aria-label="原始流量记录，可横向滚动" tabindex="0"><table><caption>全部原始记录 · 最新在前 · 图表日期范围不影响此表</caption><thead><tr><th scope="col">日期</th><th scope="col">累计上传 (GB)</th><th scope="col">累计下载 (GB)</th><th scope="col">总使用量 (GB)</th><th scope="col">使用率 (%)</th></tr></thead><tbody id="data-table-body">{% for entry in (traffic_data | reverse | list)[:20] %}<tr><td>{{ entry.date }}</td><td>{{ '%.1f' | format(entry.upload) }}</td><td>{{ '%.1f' | format(entry.download) }}</td><td>{{ '%.1f' | format(entry.totalUsed) }}</td><td>{{ '%.1f' | format(entry.usedPercent) }}%</td></tr>{% endfor %}</tbody></table></div><div class="pagination"><span id="page-description">最近 20 条记录</span><button type="button" id="previous-page" aria-label="上一页记录">上一页</button><button type="button" id="next-page" aria-label="下一页记录">下一页</button></div></details>
+            <footer><p>数据更新时间：{{ current_time }} UTC+8<br>© 2025-{{ current_time[:4] }} Purple4pur</p><a href="https://github.com/purple4pur/proxy-usage-dashboard">查看项目 ↗</a></footer>
+        </main>
     </div>
-
     <script>
-        // 从CSV数据生成的结构化数据
-        // ==================== 主题颜色配置 ====================
-        const THEME_COLORS = {
-            light: {
-                grid: 'rgba(15, 23, 42, 0.1)',
-                text: '#0f172a',
-                tooltipBorder: 'rgba(15, 23, 42, 0.2)',
-                series: {
-                    available: '#0f766e',
-                    used: '#d97706',
-                    percent: '#7c3aed',
-                    upload: '#2563eb',
-                    download: '#db2777'
-                }
-            },
-            dark: {
-                grid: 'rgba(242, 246, 250, 0.1)',
-                text: '#f2f6fa',
-                tooltipBorder: 'rgba(255, 255, 255, 0.2)',
-                series: {
-                    available: '#2dd4bf',
-                    used: '#fbbf24',
-                    percent: '#a78bfa',
-                    upload: '#3b82f6',
-                    download: '#ec4899'
-                }
-            }
-        };
-
-        function rgba(hex, alpha) {
-            const r = parseInt(hex.slice(1, 3), 16);
-            const g = parseInt(hex.slice(3, 5), 16);
-            const b = parseInt(hex.slice(5, 7), 16);
-            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-        }
-
-        /**
-         * 获取当前主题的颜色配置
-         * @returns {Object} 包含 grid, text, tooltipBorder 颜色值的对象
-         */
-        function getThemeColors() {
-            const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-            return THEME_COLORS[isDark ? 'dark' : 'light'];
-        }
-
-        // ==================== 数据初始化 ====================
-        const trafficData = [
-            {% for entry in traffic_data -%}
-            {date: '{{ entry.date }}', upload: {{ entry.upload }}, download: {{ entry.download }}, totalUsed: {{ entry.totalUsed }}, usedPercent: {{ entry.usedPercent }}}{% if not loop.last -%},{% endif %}
-            {% endfor -%}
-        ];
-
-        // 总流量
-        const totalGB = {{ total_gb }};
-
-        // 是否丢弃第一天 (只影响每日上传下载量图表)
-        // discard_day1=true: 丢弃第一天，从第二天开始显示
-        // discard_day1=false: 保留第一天，第一天数据设为 0 (默认)
+        'use strict';
+        const trafficData = {{ traffic_data | tojson }};
+        const totalGB     = {{ total_gb | tojson }};
         const discardDay1 = {{ 'true' if discard_day1 else 'false' }};
+        const DAY         = 86400000;
+        const PAGE_SIZE   = 20;
+        const $           = id => document.getElementById(id);
+        const number      = value => Number(value).toLocaleString('zh-CN', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+        const sum         = (rows, key) => rows.reduce((total, row) => total + row[key], 0);
+        const dayTime     = day => Date.parse(day + 'T00:00:00+08:00');
+        const rawRecords  = trafficData.slice().sort((a, b) => b.date.localeCompare(a.date));
+        // Keep the final snapshot for each date, then compare adjacent dates.
+        const snapshots = new Map();
+        trafficData.forEach(row => snapshots.set(row.date, row));
+        const records = Array.from(snapshots.values()).sort((a, b) => a.date.localeCompare(b.date));
+        const daily   = records.map((row, index) => {
+            const previous = records[index - 1];
+            const upload   = previous && row.upload >= previous.upload ? row.upload - previous.upload : row.upload;
+            const download = previous && row.download >= previous.download ? row.download - previous.download : row.download;
+            return { date: row.date, upload, download, total: upload + download, interval: previous ? (dayTime(row.date) - dayTime(previous.date)) / DAY : 1, baseline: !previous };
+        }).filter((row, index) => !(discardDay1 && index === 0));
+        const dailyByDate = new Map(daily.map(row => [row.date, row]));
+        let selectedRange   = '14';
+        let selectedRecords = [];
+        let selectedDaily   = [];
+        let inspectedDate   = '';
+        let tablePage       = 0;
+        let filteredRecords = rawRecords;
+        const chartSelections = new Map();
 
-        // 计算每日增量数据
-        // discard_day1=true: 丢弃第一天，从第二天开始显示
-        // discard_day1=false: 第一天直接使用当日数据（不减去前一天），从第二天起正常减去前一天
-        const dailyIncrements = trafficData.map((entry, index) => {
-            if (index === 0) {
-                // 第一天：根据开关决定是设为 0 还是使用实际数据
-                return {
-                    date: entry.date,
-                    upload: discardDay1 ? 0 : entry.upload,
-                    download: discardDay1 ? 0 : entry.download,
-                    total: discardDay1 ? 0 : (entry.upload + entry.download)
-                };
-            }
+        function setText(id, text) { $(id).textContent = text; }
 
-            return {
-                date: entry.date,
-                upload: entry.upload - trafficData[index - 1].upload,
-                download: entry.download - trafficData[index - 1].download,
-                total: (entry.upload - trafficData[index - 1].upload) +
-                       (entry.download - trafficData[index - 1].download)
-            };
+        function updateTheme() {
+            const dark = document.documentElement.dataset.theme === 'dark';
+            $('theme-toggle').setAttribute('aria-pressed', String(dark));
+            $('theme-toggle').setAttribute('aria-label', dark ? '切换浅色模式' : '切换深色模式');
+            $('theme-toggle').querySelector('.theme-label').textContent = dark ? '浅色模式' : '深色模式';
+        }
+        $('theme-toggle').addEventListener('click', () => {
+            const theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+            document.documentElement.dataset.theme = theme;
+            try { localStorage.setItem('theme', theme); } catch (_) {}
+            updateTheme();
         });
+        updateTheme();
 
-        // 根据开关决定是否丢弃第一天 (只影响每日上传下载量图表)
-        const processedIncrements = discardDay1 ? dailyIncrements.slice(1) : dailyIncrements;
-
-        // 计算日均总流量 (基于处理后的数据)
-        const dailyTotals = processedIncrements.map(entry => entry.total);
-        const avgTotal = dailyTotals.length > 0 ? dailyTotals.reduce((sum, val) => sum + val, 0) / dailyTotals.length : 0;
-
-        // 提取图表所需数据
-        // 日期格式：YYYY-MM-DD -> MM-DD (substring(5) 截取第 5 位之后的字符)
-        const dates = trafficData.map(entry => entry.date.substring(5));
-        const totalUsed = trafficData.map(entry => entry.totalUsed);
-        const usedPercent = trafficData.map(entry => entry.usedPercent);
-        const uploadDaily = processedIncrements.map(entry => entry.upload);
-        const downloadDaily = processedIncrements.map(entry => entry.download);
-        const totalDaily = processedIncrements.map(entry => entry.total);
-        const totalUpload = trafficData[trafficData.length - 1].upload;
-        const totalDownload = trafficData[trafficData.length - 1].download;
-
-        // 图表实例存储
-        let totalUsageChart = null;
-        let percentChart = null;
-        let dailyUsageChart = null;
-        let ratioChart = null;
-
-        // 计算预计剩余天数（基于过去7天平均增幅）
         function calculateRemainingDays() {
-            // 获取过去7天的使用率数据
-            const last7Days = usedPercent.slice(-8, -1);
-
-            if (last7Days.length < 2) {
-                return "未知"; // 数据不足无法计算
-            }
-
-            // 计算每日增长量
-            let dailyIncrements = [];
-            for (let i = 1; i < last7Days.length; i++) {
-                dailyIncrements.push(last7Days[i] - last7Days[i-1]);
-            }
-
-            // 计算平均每日增长量
-            const avgDailyIncrement = dailyIncrements.reduce((sum, val) => sum + val, 0) / dailyIncrements.length;
-
-            if (avgDailyIncrement <= 0) {
-                return "未知"; // 增长量为负或零
-            }
-
-            // 计算剩余天数
-            const currentUsage = usedPercent[usedPercent.length - 1];
-            const remainingPercentage = 100 - currentUsage;
-            const remainingDays = Math.ceil(remainingPercentage / avgDailyIncrement);
-
-            return remainingDays;
+            if (records.length < 2) return null;
+            const latest    = records[records.length - 1];
+            const previous  = records[Math.max(0, records.length - 8)];
+            const elapsed   = (dayTime(latest.date) - dayTime(previous.date)) / DAY;
+            const growth    = latest.usedPercent - previous.usedPercent;
+            if (growth <= 0 || elapsed <= 0) return null;
+            return Math.max(0, Math.ceil((100 - latest.usedPercent) / (growth / elapsed)));
         }
 
-        // 更新统计数据
         function updateStats() {
-            // 获取最后一条数据
-            const lastData = trafficData[trafficData.length - 1];
-
-            // 更新统计数据
-            document.getElementById('total-available').textContent = totalGB.toFixed(1) + ' GB';
-            document.getElementById('total-used').textContent = lastData.totalUsed.toFixed(1) + ' GB';
-            document.getElementById('usage-percent').textContent = lastData.usedPercent.toFixed(1) + '%';
-
-            // 计算并更新预计剩余天数
-            const remainingDays = calculateRemainingDays();
-            document.getElementById('remaining-days').textContent =
-                typeof remainingDays === 'number' ? remainingDays + ' 天' : remainingDays;
-
-            // 更新日期范围
-            const startDate = trafficData[0].date;
-            const endDate = trafficData[trafficData.length - 1].date;
-            document.getElementById('date-range').textContent =
-                `${startDate} 至 ${endDate} 流量使用分析`;
-        }
-
-        // 填充表格数据
-        function populateTable() {
-            const tableBody = document.getElementById('data-table-body');
-            tableBody.innerHTML = '';
-
-            trafficData.toReversed().forEach(entry => {
-                const row = document.createElement('tr');
-
-                row.innerHTML = `
-                    <td>${entry.date}</td>
-                    <td>${entry.upload.toFixed(1)}</td>
-                    <td>${entry.download.toFixed(1)}</td>
-                    <td>${entry.totalUsed.toFixed(1)}</td>
-                    <td>${entry.usedPercent.toFixed(1)}%</td>
-                `;
-
-                tableBody.appendChild(row);
-            });
-        }
-
-        /**
-         * 应用当前主题的系列配色
-         */
-        function applyChartSeries(chart) {
-            const s = getThemeColors().series;
-            if (chart === totalUsageChart) {
-                chart.data.datasets[0].borderColor = s.available;
-                chart.data.datasets[0].backgroundColor = rgba(s.available, 0.08);
-                chart.data.datasets[1].borderColor = s.used;
-                chart.data.datasets[1].backgroundColor = rgba(s.used, 0.1);
-            } else if (chart === percentChart) {
-                chart.data.datasets[0].borderColor = s.percent;
-                chart.data.datasets[0].backgroundColor = rgba(s.percent, 0.12);
-            } else if (chart === dailyUsageChart) {
-                chart.data.datasets[0].borderColor = s.download;
-                chart.data.datasets[0].backgroundColor = rgba(s.download, 0.8);
-                chart.data.datasets[1].borderColor = s.upload;
-                chart.data.datasets[1].backgroundColor = rgba(s.upload, 0.8);
-                chart.data.datasets[2].borderColor = s.available;
-                chart.data.datasets[2].backgroundColor = rgba(s.available, 0.1);
-            } else if (chart === ratioChart) {
-                chart.data.datasets[0].backgroundColor = [rgba(s.upload, 0.9), rgba(s.download, 0.9)];
-                chart.data.datasets[0].borderColor = [s.upload, s.download];
+            if (!records.length) {
+                $('empty-state').hidden = false;
+                $('inspect-date').disabled = true;
+                document.querySelectorAll('.range-btn').forEach(button => button.disabled = true);
+                setText('date-range', '暂无记录');
+                setText('quota-status', '暂无记录');
+                return;
             }
+            const latest    = records[records.length - 1];
+            const remaining = Math.max(0, totalGB - latest.totalUsed);
+            const days      = calculateRemainingDays();
+            const increment = dailyByDate.get(latest.date);
+            setText('date-range', records[0].date + ' — ' + latest.date + ' · ' + records.length + ' 个记录日');
+            setText('latest-date', latest.date);
+            setText('total-available', number(totalGB) + ' GB');
+            setText('remaining-gb', number(remaining));
+            setText('total-used', number(latest.totalUsed));
+            setText('usage-percent', number(latest.usedPercent));
+            setText('remaining-days', days === null ? '未知' : String(days));
+            $('days-unit').hidden = days === null;
+            setText('latest-increment', increment ? number(increment.total) : '—');
+            setText('latest-interval', increment && !increment.baseline ? '过去 ' + increment.interval + ' 天的记录增量' : '首条记录为累计基线');
+            setText('quota-status', remaining > 0 ? '额度可用' : '额度已用尽');
+            $('quota-meter').value = totalGB > 0 ? Math.min(100, latest.totalUsed / totalGB * 100) : 0;
         }
 
-        /**
-         * 初始化所有图表
-         */
-        function initCharts() {
-            // 注册 datalabels 插件
-            Chart.register(ChartDataLabels);
-
-            // 获取当前主题颜色配置
-            const colors = getThemeColors();
-            const gridColor = colors.grid;
-            const textColor = colors.text;
-
-            // 1. 总流量使用趋势图
-            const totalUsageCtx = document.getElementById('totalUsageChart').getContext('2d');
-            totalUsageChart = new Chart(totalUsageCtx, {
-                type: 'line',
-                data: {
-                    labels: dates,
-                    datasets: [
-                        {
-                            label: '总可用流量',
-                            data: Array(dates.length).fill(totalGB),
-                            borderWidth: 2,
-                            pointRadius: 0,
-                            borderDash: [5, 5]
-                        },
-                        {
-                            label: '已用流量',
-                            data: totalUsed,
-                            borderWidth: 3,
-                            tension: 0.3,
-                            fill: true
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        datalabels: { display: false },
-                        legend: {
-                            position: 'top',
-                            labels: {
-                                color: textColor
-                            }
-                        },
-                        tooltip: {
-                            mode: 'index',
-                            intersect: false,
-                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                            titleColor: '#ffffff',
-                            bodyColor: '#ffffff',
-                            borderColor: colors.tooltipBorder,
-                            borderWidth: 1
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            title: {
-                                display: true,
-                                text: '流量 (GB)',
-                                color: textColor
-                            },
-                            ticks: {
-                                color: textColor,
-                                grid: {
-                                    color: gridColor
-                                }
-                            },
-                            grid: {
-                                color: gridColor
-                            }
-                        },
-                        x: {
-                            title: {
-                                display: true,
-                                text: '日期',
-                                color: textColor
-                            },
-                            ticks: {
-                                color: textColor
-                            },
-                            grid: {
-                                color: gridColor
-                            }
-                        }
-                    }
-                }
-            });
-
-            // 2. 使用率变化图
-            const percentCtx = document.getElementById('percentChart').getContext('2d');
-            percentChart = new Chart(percentCtx, {
-                type: 'line',
-                data: {
-                    labels: dates,
-                    datasets: [{
-                        label: '使用率',
-                        data: usedPercent,
-                        borderWidth: 3,
-                        tension: 0.3,
-                        fill: true
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        datalabels: { display: false },
-                        legend: {
-                            position: 'top',
-                            labels: {
-                                color: textColor
-                            }
-                        },
-                        tooltip: {
-                            mode: 'index',
-                            intersect: false,
-                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                            titleColor: '#ffffff',
-                            bodyColor: '#ffffff',
-                            borderColor: colors.tooltipBorder,
-                            borderWidth: 1
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            title: {
-                                display: true,
-                                text: '使用率 (%)',
-                                color: textColor
-                            },
-                            ticks: {
-                                color: textColor,
-                                grid: {
-                                    color: gridColor
-                                },
-                                callback: function(value) {
-                                    return value + '%';
-                                }
-                            },
-                            grid: {
-                                color: gridColor
-                            }
-                        },
-                        x: {
-                            title: {
-                                display: true,
-                                text: '日期',
-                                color: textColor
-                            },
-                            ticks: {
-                                color: textColor
-                            },
-                            grid: {
-                                color: gridColor
-                            }
-                        }
-                    }
-                }
-            });
-
-            // 3. 每日上传下载柱状图（使用增量数据）- 堆叠柱状图
-            const dailyUsageCtx = document.getElementById('dailyUsageChart').getContext('2d');
-            dailyUsageChart = new Chart(dailyUsageCtx, {
-                type: 'bar',
-                data: {
-                    // 根据开关决定是否包含第一天 (只影响每日上传下载量图表)
-                    labels: discardDay1 ? dates.slice(1) : dates,
-                    datasets: [
-                        {
-                            label: '下载',
-                            data: downloadDaily,
-                            borderWidth: 1,
-                            stack: 'stacked'
-                        },
-                        {
-                            label: '上传',
-                            data: uploadDaily,
-                            borderWidth: 1,
-                            stack: 'stacked'
-                        },
-                        {
-                            label: '日均总流量',
-                            data: Array(processedIncrements.length).fill(avgTotal),
-                            type: 'line',
-                            borderWidth: 2,
-                            pointRadius: 0,
-                            borderDash: [5, 5],
-                            fill: false
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        datalabels: { display: false },
-                        legend: {
-                            position: 'top',
-                            labels: {
-                                color: textColor
-                            }
-                        },
-                        tooltip: {
-                            mode: 'index',
-                            intersect: false,
-                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                            titleColor: '#ffffff',
-                            bodyColor: '#ffffff',
-                            borderColor: colors.tooltipBorder,
-                            borderWidth: 1,
-                            callbacks: {
-                                label: function(context) {
-                                    const label = context.dataset.label || '';
-                                    const value = context.raw || 0;
-
-                                    // 为日均线添加特殊提示
-                                    if (label === '日均总流量') {
-                                        return `${label}: ${value.toFixed(2)} GB`;
-                                    }
-
-                                    return `${label}: ${value.toFixed(1)} GB`;
-                                },
-                                footer: function(tooltipItems) {
-                                    // 计算当天总流量（从 tooltip 数据中获取上传和下载值）
-                                    let uploadVal = 0;
-                                    let downloadVal = 0;
-                                    tooltipItems.forEach(item => {
-                                        const label = item.dataset.label || '';
-                                        if (label === '上传') uploadVal = item.raw || 0;
-                                        if (label === '下载') downloadVal = item.raw || 0;
-                                    });
-                                    const total = uploadVal + downloadVal;
-                                    return `总流量：${total.toFixed(1)} GB`;
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        y: {
-                            stacked: true,
-                            beginAtZero: true,
-                            title: {
-                                display: true,
-                                text: '流量 (GB)',
-                                color: textColor
-                            },
-                            ticks: {
-                                color: textColor,
-                                grid: {
-                                    color: gridColor
-                                }
-                            },
-                            grid: {
-                                color: gridColor
-                            }
-                        },
-                        x: {
-                            stacked: true,
-                            title: {
-                                display: true,
-                                text: '日期',
-                                color: textColor
-                            },
-                            ticks: {
-                                color: textColor
-                            },
-                            grid: {
-                                color: gridColor
-                            }
-                        }
-                    }
-                }
-            });
-
-            // 4. 上传下载比例饼图
-            const ratioCtx = document.getElementById('ratioChart').getContext('2d');
-            ratioChart = new Chart(ratioCtx, {
-                type: 'doughnut',
-                data: {
-                    labels: ['上传流量', '下载流量'],
-                    datasets: [{
-                        data: [totalUpload, totalDownload],
-                        borderWidth: 1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        datalabels: {
-                            color: '#ffffff',
-                            font: { weight: 'bold', size: 14 },
-                            formatter: function(value, context) {
-                                const total = context.dataset.data.reduce((sum, val) => sum + val, 0);
-                                const pct = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
-                                return pct + '%';
-                            }
-                        },
-                        legend: {
-                            position: 'top',
-                            labels: {
-                                color: textColor
-                            }
-                        },
-                        tooltip: {
-                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                            titleColor: '#ffffff',
-                            bodyColor: '#ffffff',
-                            borderColor: colors.tooltipBorder,
-                            borderWidth: 1,
-                            callbacks: {
-                                label: function(context) {
-                                    const label = context.label || '';
-                                    const value = context.raw || 0;
-                                    const total = ratioChart.data.datasets[0].data.reduce((sum, val) => sum + val, 0);
-                                    const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
-                                    return `${label}: ${value.toFixed(1)} GB (${percentage}%)`;
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-
-            // 应用当前主题的系列配色
-            applyChartSeries(totalUsageChart);
-            applyChartSeries(percentChart);
-            applyChartSeries(dailyUsageChart);
-            applyChartSeries(ratioChart);
+        function svgElement(tag, attributes) {
+            const element = document.createElementNS('http://www.w3.org/2000/svg', tag);
+            Object.entries(attributes).forEach(([name, value]) => element.setAttribute(name, String(value)));
+            return element;
         }
 
-        // 图表按钮事件处理
-        function setupChartButtons() {
-            // 所有图表按钮
-            document.querySelectorAll('.chart-btn').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const range = this.dataset.range;
-
-                    // 更新所有按钮状态 - 所有图表同步切换
-                    document.querySelectorAll('.chart-btn').forEach(b => {
-                        b.classList.remove('active');
-                        b.setAttribute('aria-pressed', b.dataset.range === range);
-                        if (b.dataset.range === range) {
-                            b.classList.add('active');
-                        }
-                    });
-
-                    // 更新所有图表数据
-                    updateTotalUsageChart(range);
-                    updatePercentChart(range);
-                    updateDailyUsageChart(range);
-                    updateRatioChart(range);
+        function drawChart(id,
+                           rows,
+                           kind) {
+            const svg    = $(id);
+            const width  = Math.max(280, svg.clientWidth);
+            const height = 248;
+            const left   = 52;
+            const right  = width - 16;
+            const top    = 16;
+            const bottom = height - 36;
+            svg.setAttribute('viewBox', '0 0 ' + width + ' ' + height);
+            svg.replaceChildren();
+            chartSelections.delete(id);
+            if (!rows.length) {
+                const label = svgElement('text', { x: width / 2, y: height / 2, 'text-anchor': 'middle' });
+                label.textContent = '所选范围暂无记录';
+                svg.append(label);
+                return;
+            }
+            const values = rows.map(row => kind === 'daily' ? row.total : kind === 'percent' ? row.usedPercent : row.totalUsed);
+            let largest  = kind === 'total' ? Math.max(1, totalGB) : 1;
+            values.forEach(value => largest = Math.max(largest, value));
+            const magnitude = Math.pow(10, Math.floor(Math.log10(largest)));
+            const maximum   = Math.ceil(largest / magnitude * 2) / 2 * magnitude;
+            const y         = value => bottom - value / maximum * (bottom - top);
+            const step      = (right - left) / rows.length;
+            const x         = index => left + step * (index + .5);
+            for (let index = 0; index <= 4; index++) {
+                const value = maximum * index / 4;
+                svg.append(svgElement('line', { x1: left, y1: y(value), x2: right, y2: y(value), class: 'grid-line' }));
+                const tick = svgElement('text', { x: left - 8, y: y(value) + 4, 'text-anchor': 'end' });
+                tick.textContent = Number(value.toFixed(1)).toLocaleString('zh-CN');
+                svg.append(tick);
+            }
+            const labelCount = Math.min(rows.length, Math.max(2, Math.floor((right - left) / 80)));
+            for (let label = 0; label < labelCount; label++) {
+                const index = labelCount === 1 ? 0 : Math.round(label / (labelCount - 1) * (rows.length - 1));
+                const tick  = svgElement('text', { x: x(index), y: height - 8, 'text-anchor': 'middle' });
+                tick.textContent = rows[index].date.slice(5);
+                svg.append(tick);
+            }
+            if (kind === 'daily') {
+                const barWidth = Math.max(.5, Math.min(28, step * .6));
+                rows.forEach((row, index) => {
+                    const download = svgElement('rect', { x: x(index) - barWidth / 2, y: y(row.download), width: barWidth, height: bottom - y(row.download), class: 'download' });
+                    const upload   = svgElement('rect', { x: x(index) - barWidth / 2, y: y(row.total), width: barWidth, height: y(row.download) - y(row.total), class: 'upload' });
+                    svg.append(download, upload);
                 });
-            });
-        }
-
-        // 更新总流量使用趋势图
-        function updateTotalUsageChart(range) {
-            let labels, data;
-
-            if (!isNaN(range)) {
-                // 显示最近 {range} 天数据
-                labels = dates.slice(-Number(range));
-                data = totalUsed.slice(-Number(range));
+                const elapsed = sum(rows, 'interval') || rows.length;
+                const average = sum(rows, 'total') / elapsed;
+                svg.append(svgElement('line', { x1: left, y1: y(average), x2: right, y2: y(average), class: 'reference' }));
             } else {
-                // 显示全部数据
-                labels = dates;
-                data = totalUsed;
+                const path = values.map((value, index) => (index ? 'L' : 'M') + x(index) + ',' + y(value)).join(' ');
+                svg.append(svgElement('path', { d: path + ' L' + x(rows.length - 1) + ',' + bottom + ' L' + x(0) + ',' + bottom + ' Z', class: 'area' }));
+                svg.append(svgElement('path', { d: path, class: kind === 'percent' ? 'line-percent' : 'line-used' }));
+                if (rows.length === 1) svg.append(svgElement('circle', { cx: x(0), cy: y(values[0]), r: 4, class: kind === 'percent' ? 'upload' : 'download' }));
+                if (kind === 'total') svg.append(svgElement('line', { x1: left, y1: y(totalGB), x2: right, y2: y(totalGB), class: 'reference' }));
             }
-
-            totalUsageChart.data.labels = labels;
-            totalUsageChart.data.datasets[1].data = data;
-            totalUsageChart.update();
+            const marker = svgElement('line', { y1: top, y2: bottom, class: 'selection' });
+            svg.append(marker);
+            chartSelections.set(id, { marker, positions: new Map(rows.map((row, index) => [row.date, x(index)])) });
+            updateSelections();
+            svg.onpointermove = event => {
+                const bounds = svg.getBoundingClientRect();
+                const index  = Math.max(0, Math.min(rows.length - 1, Math.floor((event.clientX - bounds.left - left) / step)));
+                inspectDate(rows[index].date);
+            };
         }
 
-        // 更新使用率变化图
-        function updatePercentChart(range) {
-            let labels, data;
-
-            if (!isNaN(range)) {
-                // 显示最近 {range} 天数据
-                labels = dates.slice(-Number(range));
-                data = usedPercent.slice(-Number(range));
-            } else {
-                // 显示全部数据
-                labels = dates;
-                data = usedPercent;
-            }
-
-            // 计算当前数据的最小值和最大值，并添加整数余量
-            const minValue = Math.min(...data);
-            const maxValue = Math.max(...data);
-
-            // 设置纵坐标范围：最小值向下取整为下限，最大值向上取整为上限
-            percentChart.options.scales.y.min = Math.floor(minValue);
-            percentChart.options.scales.y.max = Math.ceil(maxValue);
-
-            percentChart.data.labels = labels;
-            percentChart.data.datasets[0].data = data;
-            percentChart.update();
+        function drawCharts() {
+            drawChart('daily-chart', selectedDaily, 'daily');
+            drawChart('total-chart', selectedRecords, 'total');
+            drawChart('percent-chart', selectedRecords, 'percent');
         }
 
-        // 更新每日上传下载图表
-        function updateDailyUsageChart(range) {
-            let labels, uploadData, downloadData;
-
-            if (!isNaN(range)) {
-                // 显示最近 {range} 天数据
-                labels = dates.slice(-Number(range));
-                uploadData = uploadDaily.slice(-Number(range));
-                downloadData = downloadDaily.slice(-Number(range));
-
-                // 计算最近 {range} 天的日均总流量
-                const totalData = downloadData.map((d, i) => d + uploadData[i]);
-                const avg = totalData.reduce((sum, val) => sum + val, 0) / totalData.length;
-
-                // 更新日均线数据
-                dailyUsageChart.data.datasets[2].data = Array(totalData.length).fill(avg);
-            } else {
-                // 显示全部数据 - 根据开关决定是否包含第一天 (只影响每日上传下载量图表)
-                labels = discardDay1 ? dates.slice(1) : dates;
-                uploadData = uploadDaily;
-                downloadData = downloadDaily;
-
-                // 使用全局平均值
-                dailyUsageChart.data.datasets[2].data = Array(processedIncrements.length).fill(avgTotal);
-            }
-
-            dailyUsageChart.data.labels = labels;
-            dailyUsageChart.data.datasets[0].data = downloadData;
-            dailyUsageChart.data.datasets[1].data = uploadData;
-            dailyUsageChart.update();
-        }
-
-        // 更新上传下载比例饼图
-        function updateRatioChart(range) {
-            let uploadSum, downloadSum;
-
-            if (!isNaN(range)) {
-                // 计算最近 {range} 天的上传下载总量
-                const recentUpload = uploadDaily.slice(-Number(range));
-                const recentDownload = downloadDaily.slice(-Number(range));
-                uploadSum = recentUpload.reduce((sum, val) => sum + val, 0);
-                downloadSum = recentDownload.reduce((sum, val) => sum + val, 0);
-            } else {
-                // 显示全部数据
-                uploadSum = totalUpload;
-                downloadSum = totalDownload;
-            }
-
-            ratioChart.data.datasets[0].data = [uploadSum, downloadSum];
-            ratioChart.update();
-        }
-
-        // ==================== 主题切换功能 ====================
-        /**
-         * 初始化主题 - 从 localStorage 读取用户偏好并应用
-         */
-        function initTheme() {
-            const savedTheme = localStorage.getItem('theme') || 'dark';
-            document.documentElement.setAttribute('data-theme', savedTheme);
-            updateThemeIcon(savedTheme);
-        }
-
-        /**
-         * 切换主题 - 在亮色/深色模式间切换并保存偏好
-         */
-        function toggleTheme() {
-            const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
-            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-            document.documentElement.setAttribute('data-theme', newTheme);
-            localStorage.setItem('theme', newTheme);
-            updateThemeIcon(newTheme);
-            updateChartsTheme();
-        }
-
-        /**
-         * 更新主题切换按钮的图标
-         * @param {string} theme - 当前主题 ('light' 或 'dark')
-         */
-        function updateThemeIcon(theme) {
-            const icon = document.querySelector('#theme-toggle i');
-            if (icon) {
-                icon.className = theme === 'dark' ? 'fa fa-sun-o' : 'fa fa-moon-o';
-            }
-        }
-
-        /**
-         * 更新所有图表的颜色配置以匹配当前主题
-         * 会更新 legend、tooltip 和坐标轴的颜色
-         */
-        function updateChartsTheme() {
-            const colors = getThemeColors();
-            const textColor = colors.text;
-            const gridColor = colors.grid;
-            const tooltipBorderColor = colors.tooltipBorder;
-
-            // 更新所有图表的颜色配置
-            [totalUsageChart, percentChart, dailyUsageChart, ratioChart].forEach(chart => {
-                if (chart) {
-                    // 应用当前主题的系列配色
-                    applyChartSeries(chart);
-
-                    // 更新 legend 颜色
-                    chart.options.plugins.legend.labels.color = textColor;
-
-                    // 更新 tooltip 颜色（统一白字黑底）
-                    chart.options.plugins.tooltip.backgroundColor = 'rgba(0, 0, 0, 0.8)';
-                    chart.options.plugins.tooltip.titleColor = '#ffffff';
-                    chart.options.plugins.tooltip.bodyColor = '#ffffff';
-                    chart.options.plugins.tooltip.borderColor = tooltipBorderColor;
-
-                    // 只有存在 scales 的图表才更新坐标轴（饼图没有 scales）
-                    if (chart.options.scales) {
-                        if (chart.options.scales.x) {
-                            chart.options.scales.x.ticks.color = textColor;
-                            chart.options.scales.x.title.color = textColor;
-                            chart.options.scales.x.grid.color = gridColor;
-                        }
-                        if (chart.options.scales.y) {
-                            chart.options.scales.y.ticks.color = textColor;
-                            chart.options.scales.y.title.color = textColor;
-                            chart.options.scales.y.grid.color = gridColor;
-                        }
-                    }
-
-                    // 重新渲染图表
-                    chart.update();
+        function updateSelections() {
+            chartSelections.forEach(({ marker, positions }) => {
+                const position = positions.get(inspectedDate);
+                marker.style.display = position === undefined ? 'none' : '';
+                if (position !== undefined) {
+                    marker.setAttribute('x1', position);
+                    marker.setAttribute('x2', position);
                 }
             });
         }
 
-        // 页面加载完成后初始化
-        document.addEventListener('DOMContentLoaded', function() {
-            initTheme(); // 初始化主题
-            document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
+        function inspectDate(day) {
+            if (day === inspectedDate) return;
+            inspectedDate = day;
+            $('inspect-date').value = day;
+            const row   = records.find(record => record.date === day);
+            const delta = dailyByDate.get(day);
+            if (!row) return;
+            setText('inspect-values', delta ? '下载 ' + number(delta.download) + ' GB · 上传 ' + number(delta.upload) + ' GB · 合计 ' + number(delta.total) + ' GB' : '首条记录已从每日用量中排除');
+            setText('total-summary', day + ' · 累计已用 ' + number(row.totalUsed) + ' GB / ' + number(totalGB) + ' GB');
+            setText('percent-summary', day + ' · 使用率 ' + number(row.usedPercent) + '%');
+            updateSelections();
+        }
+        $('inspect-date').addEventListener('change', event => inspectDate(event.target.value));
+
+        function updateRange(range) {
+            selectedRange = range;
+            const latest  = records[records.length - 1];
+            const cutoff  = range === 'all' || !latest ? -Infinity : dayTime(latest.date) - (Number(range) - 1) * DAY;
+            selectedRecords = records.filter(row => dayTime(row.date) >= cutoff);
+            selectedDaily   = daily.filter(row => dayTime(row.date) >= cutoff);
+            document.querySelectorAll('.range-btn').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.range === range)));
+            setText('range-description', (range === 'all' ? '全部记录' : '最近 ' + range + ' 天') + ' · ' + selectedRecords.length + ' 个记录日');
+            const elapsed = sum(selectedDaily, 'interval') || selectedDaily.length;
+            const average = elapsed ? sum(selectedDaily, 'total') / elapsed : 0;
+            let peak      = 0;
+            selectedDaily.forEach(row => peak = Math.max(peak, row.total));
+            setText('daily-average', number(average) + ' GB');
+            setText('daily-peak', number(peak) + ' GB');
+            setText('daily-note', selectedDaily.some(row => row.baseline) ? '首条记录包含累计基线；其余为记录间增量' : '相邻记录间增量；跨多日的记录按间隔计算日均');
+            const upload   = range === 'all' && latest ? latest.upload : sum(selectedDaily, 'upload');
+            const download = range === 'all' && latest ? latest.download : sum(selectedDaily, 'download');
+            const total    = upload + download;
+            const percent  = total ? download / total * 100 : 0;
+            setText('ratio-total', number(total));
+            setText('download-ratio', number(download) + ' GB · ' + number(percent) + '%');
+            setText('upload-ratio', number(upload) + ' GB · ' + number(total ? 100 - percent : 0) + '%');
+            setText('ratio-note', range === 'all' ? '最新记录的累计上传与下载' : '所选范围内的新增流量');
+            $('ratio-download').setAttribute('stroke-dasharray', percent + ' ' + (100 - percent));
+            $('ratio-upload').setAttribute('stroke-dasharray', (total ? 100 - percent : 0) + ' ' + (total ? percent : 100));
+            $('ratio-upload').setAttribute('stroke-dashoffset', String(-percent));
+            $('inspect-date').replaceChildren(...selectedRecords.map(row => {
+                const option = document.createElement('option');
+                option.value = row.date;
+                option.textContent = row.date;
+                return option;
+            }));
+            inspectedDate = '';
+            if (selectedRecords.length) inspectDate(selectedRecords[selectedRecords.length - 1].date);
+            drawCharts();
+        }
+        document.querySelectorAll('.range-btn').forEach(button => button.addEventListener('click', () => updateRange(button.dataset.range)));
+
+        function populateTable() {
+            const start    = tablePage * PAGE_SIZE;
+            const pageRows = filteredRecords.slice(start, start + PAGE_SIZE);
+            const fragment = document.createDocumentFragment();
+            pageRows.forEach(row => {
+                const element = document.createElement('tr');
+                [row.date, number(row.upload), number(row.download), number(row.totalUsed), number(row.usedPercent) + '%'].forEach(value => {
+                    const cell = document.createElement('td');
+                    cell.textContent = value;
+                    element.append(cell);
+                });
+                fragment.append(element);
+            });
+            if (!pageRows.length) {
+                const row  = document.createElement('tr');
+                const cell = document.createElement('td');
+                cell.colSpan = 5;
+                cell.textContent = '没有匹配的记录';
+                row.append(cell);
+                fragment.append(row);
+            }
+            $('data-table-body').replaceChildren(fragment);
+            setText('record-count', filteredRecords.length + ' 条记录');
+            setText('page-description', filteredRecords.length ? (start + 1) + '–' + Math.min(start + PAGE_SIZE, filteredRecords.length) + ' / ' + filteredRecords.length + ' 条' : '0 条记录');
+            $('previous-page').disabled = tablePage === 0;
+            $('next-page').disabled = start + PAGE_SIZE >= filteredRecords.length;
+        }
+        $('date-search').addEventListener('input', event => {
+            filteredRecords = rawRecords.filter(row => row.date.includes(event.target.value.trim()));
+            tablePage = 0;
             populateTable();
-            initCharts();
-            setupChartButtons();
-            updateTotalUsageChart('14');
-            updatePercentChart('14');
-            updateDailyUsageChart('14');
-            updateRatioChart('14');
-            updateStats(); // 更新统计数据
         });
+        $('previous-page').addEventListener('click', () => { tablePage--; populateTable(); });
+        $('next-page').addEventListener('click', () => { tablePage++; populateTable(); });
+        $('records-link').addEventListener('click', () => $('records').open = true);
+        let resizeFrame = 0;
+        new ResizeObserver(() => {
+            cancelAnimationFrame(resizeFrame);
+            resizeFrame = requestAnimationFrame(drawCharts);
+        }).observe($('daily-chart'));
+        updateStats();
+        updateRange(selectedRange);
+        populateTable();
     </script>
 </body>
 </html>
