@@ -66,6 +66,28 @@ class DashboardTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 process_csv(path)
 
+    def test_nonfinite_and_negative_numbers_fail(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'bad.csv'
+            for value in ['nan', 'inf', '-1']:
+                path.write_text(FIXTURE.read_text().replace('17.5,436.1', value + ',436.1', 1))
+                with self.subTest(value=value), self.assertRaises(ValueError):
+                    process_csv(path)
+
+    def test_invalid_date_fails(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'bad.csv'
+            path.write_text(FIXTURE.read_text().replace('2026-09-15', '2026-99-99'))
+            with self.assertRaises(ValueError):
+                process_csv(path)
+
+    def test_cli_from_another_directory(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path   = Path(directory) / 'dashboard.html'
+            result = subprocess.run([sys.executable, str(ROOT / 'dashboard.py'), str(FIXTURE), str(path)], cwd=directory, text=True, capture_output=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertTrue(path.is_file())
+
     def test_render_preserves_dashboard_information(self):
         data, quota = process_csv(FIXTURE)
         with tempfile.TemporaryDirectory() as directory:
